@@ -1,25 +1,33 @@
-export const GIT_PANEL_TYPES = {
-  changes: 'git-changes',
-  history: 'git-history',
-  'create-branch': 'git-create-branch',
-  'create-worktree': 'git-create-worktree',
-  worktrees: 'git-worktrees',
-} as const
-export type GitPanelView = keyof typeof GIT_PANEL_TYPES
-export const GIT_PANEL_TITLES: Record<GitPanelView, string> = {
-  changes: '变更', history: '提交记录', 'create-branch': '创建分支',
-  'create-worktree': '创建工作树', worktrees: '工作树',
-}
+import {
+  GIT_PANEL_TITLES, GIT_PANEL_VIEWS, GIT_SIDEBAR_TITLE, GIT_SIDEBAR_TYPE, gitSidebarError, isGitPanelView,
+  setActiveGitView, type GitPanelView,
+} from './panels/navigation.js'
+
+export { GIT_PANEL_TITLES, GIT_PANEL_VIEWS, GIT_SIDEBAR_TITLE, GIT_SIDEBAR_TYPE, isGitPanelView }
+export type { GitPanelView }
+
+/**
+ * Every view used to own a sidebar tab of its own, which put five near-identical
+ * entries in the launcher. They now share ONE tab: this map is kept so callers
+ * (and the single-entry regression test) still enumerate the reachable views.
+ */
+export const GIT_PANEL_TYPES: Record<GitPanelView, string> = Object.fromEntries(
+  GIT_PANEL_VIEWS.map(view => [view, GIT_SIDEBAR_TYPE]),
+) as Record<GitPanelView, string>
 
 /** All Git navigation uses the session-owned native right sidebar, never a modal/window. */
 export function createGitPanelOpener(scope: any) {
   return async (view: GitPanelView, target: { sessionId?: string; cwd: string }): Promise<void> => {
-    const type = GIT_PANEL_TYPES[view]
-    if (!type) throw new Error('未知的 Git 面板')
+    if (!isGitPanelView(view)) throw new Error('未知的 Git 面板')
     if (!target.cwd) throw new Error('请先选择项目目录')
     const sidebar = scope.get?.('betterSidebar') || scope.betterSidebar
-    if (!sidebar?.openTab || !sidebar.getTab?.(type)) throw new Error('右侧 Git 面板尚未就绪，请启用侧边栏插件后重试')
-    if (sidebar.isTabEnabled && !sidebar.isTabEnabled(type)) throw new Error('此 Git 面板已在侧边栏设置中停用')
+    if (!sidebar?.openTab || !sidebar.getTab?.(GIT_SIDEBAR_TYPE)) {
+      // A refused registration is not a missing plugin: say which one it was.
+      const refused = gitSidebarError()
+      if (refused) throw new Error(`Git 侧栏入口注册失败：${refused}`)
+      throw new Error('右侧 Git 面板尚未就绪，请启用侧边栏插件后重试')
+    }
+    if (sidebar.isTabEnabled && !sidebar.isTabEnabled(GIT_SIDEBAR_TYPE)) throw new Error('Git 面板已在侧边栏设置中停用')
     let sessionId = target.sessionId
     if (!sessionId) {
       // A blank workspace can be selected before a Session exists. Adopt that
@@ -28,6 +36,14 @@ export function createGitPanelOpener(scope: any) {
       sessionId = await scope.uiWorkspace.connectWorkspace(workspace.workspaceId)
       await scope.uiWorkspace.openWorkspace(workspace.workspaceId)
     }
-    sidebar.openTab({ type, id: type, path: target.cwd, title: GIT_PANEL_TITLES[view], target: 'right', reveal: true }, { sessionId, cwd: target.cwd })
+    // Set the page BEFORE opening: focusing a tab that is already open does not
+    // re-navigate it, and the panel must still land on the requested view. The tab
+    // title stays the stable "Git" — the panel's own tab strip names the page, so a
+    // dynamically renamed title would contradict whatever the user navigates to next.
+    setActiveGitView(sessionId, target.cwd, view)
+    sidebar.openTab({
+      type: GIT_SIDEBAR_TYPE, id: GIT_SIDEBAR_TYPE, path: target.cwd, title: GIT_SIDEBAR_TITLE,
+      meta: { gitView: view }, target: 'right', reveal: true,
+    }, { sessionId, cwd: target.cwd })
   }
 }

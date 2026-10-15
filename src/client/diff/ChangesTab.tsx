@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import type { DiffView } from '../../core/types.js'
-import { gitApi } from '../api.js'
-import { IconBranch, IconCheck, IconChevronDown, IconDiff, IconFile, IconRefresh } from '../icons.js'
+import { gitApi, errorMessage } from '../api.js'
+import { IconBranch, IconCheck, IconChevronDown, IconDiff, IconExternalLink, IconFile, IconRefresh } from '../icons.js'
 import { useWorkspaceCwd } from '../cwd-resolver.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
+import { GitLoadingState } from '../loading-state.js'
 
-function ChangesLoading({ repository = false }: { repository?: boolean }) {
-  return <div className="dsh-git-changes-loading" role="status" aria-live="polite">
-    <div className="dsh-git-loading-icon"><IconRefresh size={20} className="dsh-git-spin" /></div>
-    <strong>{repository ? '正在加载仓库' : '正在读取文件差异'}</strong>
-    <p>{repository ? '分支和文件变更即将显示在这里' : '正在整理变更文件与代码对比'}</p>
-    <div className="dsh-git-loading-preview" aria-hidden="true"><i /><i /><i /></div>
-  </div>
+/** 仓库状态与文件差异是两个请求，对用户却是一次等待，因此共用一个加载画面。 */
+function ChangesLoading() {
+  return <GitLoadingState title="正在加载仓库" hint="分支和文件变更即将显示在这里" />
 }
 
 export function ChangesTab(props: any) {
@@ -21,6 +18,7 @@ export function ChangesTab(props: any) {
   const [compareTarget, setCompareTarget] = useState<'working-head' | 'branch-upstream'>('working-head')
   const [compareDropdownOpen, setCompareDropdownOpen] = useState(false)
   const [refresh, setRefresh] = useState(0)
+  const [editorNotice, setEditorNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const branch = status?.branch
   const head = status?.head
   const revision = status?.revision
@@ -37,6 +35,25 @@ export function ChangesTab(props: any) {
     setSelectedFile(null)
     setCompareDropdownOpen(false)
   }, [cwd])
+
+  // The editor result is a transient confirmation, not a state of the repository.
+  useEffect(() => {
+    if (!editorNotice) return
+    const timer = setTimeout(() => setEditorNotice(null), 5000)
+    return () => clearTimeout(timer)
+  }, [editorNotice])
+
+  const openInEditor = async (file: string) => {
+    setEditorNotice(null)
+    try {
+      const result = await gitApi.openInEditor(cwd, file)
+      setEditorNotice(result.ok
+        ? { ok: true, text: `${result.editor ? `已用 ${result.editor} 打开` : '已用系统默认应用打开'}：${result.target || file}` }
+        : { ok: false, text: result.error || '无法打开外部编辑器' })
+    } catch (error) {
+      setEditorNotice({ ok: false, text: errorMessage(error) })
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -63,10 +80,9 @@ export function ChangesTab(props: any) {
     return diffView.files.find(f => f.path === selectedFile) || diffView.files[0] || null
   }, [diffView, selectedFile])
 
-  if (statusLoading && !status && !statusError) return <div className="dsh-git-changes-panel" aria-busy="true">
-    <div className="dsh-git-toolbar-skeleton" aria-hidden="true"><i /><i /></div>
-    <ChangesLoading repository />
-  </div>
+  // 等仓库状态和等差异是同一次等待，因此共用下面同一个加载画面：此前两者各有文案，
+  // 于是先显示「正在加载仓库」再被换成「正在读取文件差异」，看起来像加载了两次。
+  const firstLoad = statusLoading && !status && !statusError
   if (statusError && !status) return <div className="dsh-git-changes-panel"><div className="dsh-git-empty-state">
     <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>暂时无法加载仓库</strong>
     <p className="dsh-git-state-error" role="alert">{statusError}</p>
@@ -94,8 +110,9 @@ export function ChangesTab(props: any) {
   }
 
   return (
-    <div className="dsh-git-changes-panel">
-      <div className="dsh-git-changes-header">
+    <div className="dsh-git-changes-panel" aria-busy={firstLoad ? 'true' : undefined}>
+      {firstLoad ? <div className="dsh-git-toolbar-skeleton" aria-hidden="true"><i /><i /></div>
+        : <div className="dsh-git-changes-header">
         <div className="dsh-git-repo-row">
           <span className="dsh-git-current-branch" title={status?.branch || 'HEAD'}><IconBranch size={15} /><span>{status?.branch || 'HEAD'}</span></span>
           <div className="dsh-git-change-summary">
@@ -144,10 +161,11 @@ export function ChangesTab(props: any) {
             </div>
           </>}
         </div>
-      </div>
+      </div>}
 
       {statusError && <div className="dsh-git-changes-notice dsh-git-error" role="alert">{statusError}</div>}
-      {loadingDiff ? <ChangesLoading /> : diffError ? <div className="dsh-git-empty-state">
+      {editorNotice && <div className={`dsh-git-changes-notice ${editorNotice.ok ? 'dsh-git-editor-notice' : 'dsh-git-error'}`} role="status">{editorNotice.text}</div>}
+      {firstLoad || loadingDiff ? <ChangesLoading /> : diffError ? <div className="dsh-git-empty-state">
         <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>无法读取差异</strong>
         <p className="dsh-git-state-error" role="alert">{diffError}</p>
         <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}><IconRefresh size={14} />重试</button>
@@ -176,11 +194,11 @@ export function ChangesTab(props: any) {
                   onClick={() => setSelectedFile(file.path)}
                   title={file.path}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div className="dsh-git-file-name">
                     <IconFile size={13} />
                     <span>{file.path.split('/').pop() || file.path}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'monospace', fontSize: 11 }}>
+                  <div className="dsh-git-file-stats">
                     <span className="dsh-git-ins">+{file.insertions}</span>
                     <span className="dsh-git-del">-{file.deletions}</span>
                   </div>
@@ -196,13 +214,21 @@ export function ChangesTab(props: any) {
             <>
               {/* Diff File Header */}
               <div className="dsh-git-diff-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* One row: the path ellipsizes instead of wrapping the stats and the
+                    button onto separate lines. */}
+                <div className="dsh-git-diff-file" title={activeFile.path}>
                   <IconFile size={14} />
-                  <span style={{ fontWeight: 600 }}>{activeFile.path}</span>
-                  <span style={{ fontSize: 11 }}>
+                  <span className="dsh-git-diff-path">{activeFile.path}</span>
+                  <span className="dsh-git-diff-stats">
                     <span className="dsh-git-ins">+{activeFile.insertions}</span>
                     <span className="dsh-git-del"> -{activeFile.deletions}</span>
                   </span>
+                </div>
+                <div className="dsh-git-head-actions">
+                  {activeFile.status !== 'deleted' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-open-editor"
+                    title="在外部编辑器中打开这个文件" onClick={() => openInEditor(activeFile.path)}>
+                    <IconExternalLink size={13} /><span>在编辑器中打开</span>
+                  </button>}
                 </div>
               </div>
 

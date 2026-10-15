@@ -116,3 +116,12 @@ export function IconFolderTree(props: IconProps) {
 export function IconWorktree(props: IconProps) {
   return <IconFolderTree {...props} />
 }
+
+/** Opens content outside the app (external editor / system application). */
+export function IconExternalLink(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h6v6M20 4l-8.5 8.5M18 14.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7.5A1.5 1.5 0 0 1 5 6h4.5" />
+    </Icon>
+  )
+}

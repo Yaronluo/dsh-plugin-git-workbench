@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react'
 import type { WorktreeItem } from '../../core/types.js'
 import { gitApi } from '../api.js'
-import { IconClose, IconWorktree } from '../icons.js'
+import { IconClose, IconRefresh, IconWorktree } from '../icons.js'
 import { DialogShell } from './DialogShell.js'
+import { GitLoadingState } from '../loading-state.js'
 
 const message = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : '操作失败'
 
@@ -95,10 +96,16 @@ export function WorktreeManagerDialog({ path, onClose }: { path: string; onClose
       <span><IconWorktree size={16} /> 管理 Git Worktrees</span>
       <button type="button" aria-label="关闭" className="dsh-git-icon-btn" disabled={!!deleting} onClick={onClose}><IconClose size={16} /></button>
     </div>
-    <div className="dsh-git-modal-body" style={{ maxHeight: 360, overflowY: 'auto' }}>
-      {error && <div className="dsh-git-error" role="alert">{error}<button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting} onClick={() => setRefresh(value => value + 1)}>重新加载</button></div>}
-      {loading ? <div className="dsh-git-muted" role="status">加载中…</div> : !error && list.length === 0 ? <div className="dsh-git-muted">暂无 Worktree</div> : list.map(worktree => <div key={worktree.path} className="dsh-git-worktree-row">
-        <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}><strong>{worktree.branch || 'HEAD'}</strong>{worktree.isCurrent && '（当前检出）'}{worktree.locked && '（已锁定）'}<div className="dsh-git-muted" style={{ fontFamily: 'monospace', fontSize: 12 }}>{worktree.path}</div></div>
+    <div className="dsh-git-modal-body">
+      {error && <div className="dsh-git-changes-notice dsh-git-error" role="alert">{error}
+        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} />重新加载</button></div>}
+      {loading ? <GitLoadingState title="正在读取工作树" hint="每个工作树的分支与路径即将显示" />
+        : !error && list.length === 0 ? <div className="dsh-git-empty-state">
+          <div className="dsh-git-state-icon"><IconWorktree size={24} /></div><strong>暂无 Worktree</strong>
+          <p>用顶部的工作树按钮创建一个，它会在独立目录里检出一个分支。</p>
+        </div>
+        : list.map(worktree => <div key={worktree.path} className="dsh-git-worktree-row">
+        <div className="dsh-git-worktree-copy"><strong>{worktree.branch || 'HEAD'}</strong>{worktree.isCurrent && '（当前检出）'}{worktree.locked && '（已锁定）'}<div className="dsh-git-muted dsh-git-worktree-path">{worktree.path}</div></div>
         {!worktree.isCurrent && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting || worktree.locked} onClick={() => setPendingDelete(worktree.path)}>{deleting === worktree.path ? '删除中…' : '删除'}</button>}
       </div>)}
       {pendingDelete && <div role="group" aria-label="确认删除 Worktree">

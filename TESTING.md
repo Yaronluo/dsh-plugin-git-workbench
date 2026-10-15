@@ -2,7 +2,7 @@
 
 ## 自动验证
 
-最新结果：52 项测试全部通过（0 失败、0 跳过），TypeScript 检查、Host/Client 构建及产物语法检查通过。新增侧栏导航、Hero 模式选择器保留、面板无遮罩展示和图标 SVG 回归。新增接入回归覆盖 Host 工作区模型类方法的 `this` 绑定：直接把 `getSnapshot` / `subscribe` 传给 React 会丢失接收者，导致 Slot 崩溃并被框架退役；现已改成稳定闭包调用原对象方法。此前 39 项测试未覆盖该集成边界，不能作为页面已成功挂载的证明。
+最新结果：85 项测试全部通过（0 失败、0 跳过），TypeScript 检查、Host/Client 构建及产物语法检查通过。新增侧栏导航、Hero 模式选择器保留、面板无遮罩展示和图标 SVG 回归。新增「tab 注册被拒绝时报告真实原因」的回归：注册失败不再退化成「侧边栏插件未就绪」。新增接入回归覆盖 Host 工作区模型类方法的 `this` 绑定：直接把 `getSnapshot` / `subscribe` 传给 React 会丢失接收者，导致 Slot 崩溃并被框架退役；现已改成稳定闭包调用原对象方法。此前 39 项测试未覆盖该集成边界，不能作为页面已成功挂载的证明。新增外部编辑器能力的回归：编辑器探测顺序与 `-g` 参数形态、`DSH_GIT_EDITOR` 覆盖、宿主打开能力优先于 shell、拒绝仓库外路径与 shell 元字符、文件已删除、路由参数校验，以及前端按钮点击后如实展示宿主返回结果（失败不显示成功）。新增「只加载一次」的回归：提交记录必须等仓库状态就绪后再请求日志（否则同一 revision 会被请求两次，列表显示后又被清空重载），仓库状态尚未就绪时不发差异请求，且「等仓库状态」与「等差异」共用同一个加载文案，不再出现连续两个加载画面。
 
 需要 Git 和 Node.js 24.2+（测试使用 Node 自带 TypeScript 转译与模块 hooks；发布产物不需要转译器）。
 
@@ -58,9 +58,35 @@ node --check lib/client.js
 - 检测与分析中的提示统一为“加载中…”。
 - 图标统一 24px 坐标、1.7 圆角线条与 currentColor；创建分支、历史、工作树分别使用专用图标。
 - 变更、提交记录、创建分支、创建工作树和管理工作树全部使用当前会话的原生右侧栏 tab。明确 `target: right`，不回退到居中弹窗或底部工作台；侧栏不可用时明确报错。
+- **启动器只有一个 Git 入口**：五类页面共用同一个 `type: 'dsh-plugin-git'` 的 tab，页面切换由面板自身的 tab 条完成（变更 / 提交记录 / 工作树 为页面，创建分支 / 创建工作树 为图标动作）。`registerTab` 只调用一次，tab 标题固定为“Git”，不再随页面改名。
+- **tab id 必须带插件命名空间**：`betterSidebar.registerTab` 对重复 id 直接抛 `tab type "..." already registered`，而侧栏自带的内置 tab 已占用 `editor` / `git` / `subagent` / `sidechat` / `terminal-bottom` / `diff`。曾把本插件的 tab 注册成 `git`（与内置“变更”页撞号），结果是五个旧入口消失、新的单一入口也没注册上——启动器里一个 Git 入口都不剩。`tests/sidebar-single-entry.test.mjs` 现在固定断言该 id 不属于内置 id 且以 `dsh-plugin-git` 开头。
 - 窄侧栏采用上下文件列表/差异布局，无变更时居中显示“暂无文件更改”。表单在面板中不使用遮罩或模态焦点锁。
 
-重启后请重点核对：项目/模式/分支是否同排；模式选择仍正常；点击变更和提交记录是否挤开聊天区并进入右侧栏；创建/管理工作树是否也在右侧展示；不同会话打开的面板是否正确隔离。当前没有浏览器交互能力，以上视觉与真实窗口行为尚待人工验收。
+## 第二轮截图反馈（加载态、头部拥挤、外部编辑器）
+
+- **加载态统一为组件**：新增 `src/client/loading-state.tsx` 的 `GitLoadingState`（图标 + 标题 + 说明 + 骨架条），变更面板、提交记录、工作树、非 Git 提示共用。此前的“管理 Git Worktrees / 提交记录下面一行光秃秃的加载中…”来自各处手写的裸文本。
+- **提交记录顶部不再挤成一坨**：`.dsh-git-changes-header` 是纵排列（`flex-direction: column`），提交记录的标题行和刷新按钮因此变成上下两块、按钮被拉满整行。现在标题行是横排（标题 + 计数 + 方形刷新按钮，右对齐），列表本身才是纵排列。
+- **会话头部控件留出间距**：`.dsh-git-header-controls` 之前没有任何样式规则，分支胶囊和「变更」按钮紧贴在一起；现在有 `gap: 8px`、`margin-left: 6px`，分支名过长时省略号截断而不是把整排撑开。
+- **差异标题栏新增「在编辑器中打开」**：调用 `POST /dsh-git/open-in-editor`，Host 端按 `code` / `cursor` / `code-insiders` / `windsurf` / `zed` / `subl` 顺序探测 CLI（`zed` / `subl` 无 `-g` 时用 `路径:行号`），`DSH_GIT_EDITOR` 可覆盖；都找不到时先用 DSH 的 `sessionController.openWorkspacePath`，再退回系统默认应用（Windows `cmd /c start`、macOS `open`、Linux `xdg-open`）。安全约束：只允许仓库内路径，拒绝 `" ' \` % ^ & | < > ( )` 等元字符，进程以 `detached + stdio: ignore` 启动并 `unref()`，绝不把路径拼进 shell 字符串；文件不存在或超出仓库时明确报错，不假装成功。
+
+重启后请重点核对：启动器里 Git 只占一行；项目/模式/分支是否同排；模式选择仍正常；点击变更和提交记录是否挤开聊天区并进入右侧栏且落在对应页面；创建/管理工作树是否也在右侧展示；不同会话打开的面板是否正确隔离。**本次新增 Host 路由 `/dsh-git/open-in-editor`，因此必须完整重启 DSH Desktop，刷新页面不足以加载新的 Host 代码。** 重启后额外核对：提交记录与工作树的加载态是否为骨架屏而非一行裸文本；会话头部四个控件之间是否有间距；差异标题栏右侧「在编辑器中打开」能否用本机编辑器打开当前文件（未安装上述编辑器时是否交给系统默认应用），以及打开失败时是否显示真实原因。当前没有浏览器交互能力，以上视觉与真实窗口行为尚待人工验收。
+
+## 第三轮截图反馈（等宽字体）
+
+- **不再使用裸 `monospace` 关键字**：`WorktreeDialogs.tsx` 的工作树路径、`ChangesTab.tsx` 文件列表的 `+n -n` 都是行内 `fontFamily: 'monospace'`。该关键字解析到系统默认等宽字体，中文 Windows 上通常是 NSimSun／宋体一类字面，拉丁字形又细又歪——这就是截图里“字体很怪”的来源。现在统一用 `src/client/styles.ts` 导出的 `CODE_FONT = var(--ds-font-family-code, Consolas, "Liberation Mono", Menlo, monospace)`：`--ds-font-family-code` 是 UI 主题在 `:root` 上声明的代码字体（宿主自己的包和 `dsh-better-sidebar` 都用它），带回退链，中文路径也不会掉字。
+- 行内样式收敛成类：`.dsh-git-worktree-path`、`.dsh-git-file-name`、`.dsh-git-file-stats`（含 `font-variant-numeric: tabular-nums`，数字对齐）；面板内的裸 `<code>` / `<pre>` / `<kbd>` 也统一改用同一字体。
+- `tests/theme.test.mjs` 新增回归：任何 `font-family: monospace` 或 `fontFamily: 'monospace'` 都会失败，并断言 `CODE_FONT` 仍基于 `--ds-font-family-code`；主题 token 白名单相应加入 `--ds-font-family-code`。
+- 注意：本次为纯前端改动，刷新页面（Ctrl+R）即可生效；若之前那轮 Host 路由尚未重启加载过，仍需完整重启。
+
+## 第四轮截图反馈（面板整体字体 ≠ 应用字体）
+
+真正的原因不是等宽关键字，而是**整块面板的中文都没有字体可落**：
+
+- 上游字体栈 `--dsw-font-family` 是 `-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", …`。本机（Windows 11 中文环境）实测：`Microsoft YaHei` **未安装**（只有 `Microsoft YaHei UI`），`PingFang SC` / `Hiragino Sans GB` 是 macOS 专有，`Segoe UI` 不含中文字形——于是每个汉字都穿过整条链，落到浏览器默认的中文衬线字体上，看起来就是「宋体感的怪字体」；而应用自己的界面文字走的是 `:root` 上的 `"Noto Sans SC"`（本机已安装），所以只有我们的面板突兀。
+- 修复：`UI_FONT` 改成**先列本机真实存在的 CJK 无衬线字体**（`"Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC"`），再把应用 token 作为后续回退；同时在注入样式表时用 `appUiFont()` **镜像 `:root` 实际解析出的字体**（本机为 `"Noto Sans SC"`），追加一条同权重但更靠后的规则，保证面板与应用逐字一致，且换机器/换主题时自动跟随。
+- 客户端包是**热更新**的：每次 `node scripts/build.mjs` 之后，运行中的窗口在数秒内就会执行新 bundle（自检文件里的 `build` 字段随构建变化可证）。只有 Host（`lib/index.js`）改动才需要完整重启 DSH Desktop；界面改动刷新即可。
+- 自检：`src/client/diagnostics.ts` 会把运行中的 build 标记、样式表长度、面板真实元素的最终字体、`fontAvailability()` 的 canvas 实测结果 POST 到 `/dsh-git/client-report`，Host 写入临时目录 `dsh-plugin-git-client-report-<source>.json`。排查「改了没生效」时先读它，不要再靠肉眼看截图猜。
+- `tests/styles-injection.test.mjs` 新增两条回归：字体链必须以已安装的 CJK 字体开头、应用 token 必须排在它们之后；注入的样式表必须镜像 `:root` 的字体。
 
 ## 需要人工完成的界面验收
 

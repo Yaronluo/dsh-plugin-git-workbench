@@ -1,5 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { GitService } from './git-service.js'
+import { createEditorLauncher, type EditorLauncher } from './editor-launcher.js'
 
 interface Group {
   path: string
@@ -52,7 +56,40 @@ function stringField(payload: Record<string, any>, key: string, optional = false
   return value
 }
 
-export function registerRoutes(ctx: any, service: GitService, options: { pollIntervalMs?: number } = {}): () => void {
+/**
+ * DSH's own "open this path" capability, when the host is a desktop session.
+ *
+ * `sessionController` is looked up instead of injected so a headless host still loads the
+ * plugin; without it the launcher falls back to the platform shell.
+ */
+function nativePathOpener(ctx: any): (absolutePath: string) => Promise<void> {
+  return async (absolutePath: string) => {
+    const controller = ctx?.get?.('sessionController')
+    if (!controller?.openWorkspacePath) throw new Error('DSH 未提供系统打开能力')
+    if (typeof controller.canOpenWorkspacePath === 'function' && !(await controller.canOpenWorkspacePath())) {
+      throw new Error('当前环境无法打开本地文件')
+    }
+    await controller.openWorkspacePath({ path: absolutePath })
+  }
+}
+
+/**
+ * Where the client's self-report lands.
+ *
+ * The renderer cannot tell the host which bundle it executed, so it posts the measurable
+ * facts and the host stores them for inspection. Diagnostics only; no UI depends on it.
+ */
+export function clientReportPath(source = 'client'): string {
+  const safe = String(source).replace(/[^a-z0-9_-]/gi, '') || 'client'
+  return join(tmpdir(), `dsh-plugin-git-client-report-${safe}.json`)
+}
+
+export function registerRoutes(
+  ctx: any,
+  service: GitService,
+  options: { pollIntervalMs?: number; editorLauncher?: EditorLauncher } = {},
+): () => void {
+  const editor = options.editorLauncher ?? createEditorLauncher({ openNatively: nativePathOpener(ctx) })
   const groups = new Map<string, Group>()
   const lastSent = new WeakMap<ServerResponse, string>()
   let stopped = false
@@ -126,6 +163,16 @@ export function registerRoutes(ctx: any, service: GitService, options: { pollInt
       if (url.pathname === '/dsh-git/events') { sseHandler(req, res, url); return }
       if (req.method !== 'POST') { writeJson(res, 405, { ok: false, error: 'Method Not Allowed' }); return }
       const payload = await readJsonBody(req)
+      if (url.pathname === '/dsh-git/client-report') {
+        // Deliberately before the required `path`: a report arrives with no repository.
+        const source = stringField(payload, 'source', true) || 'client'
+        try {
+          writeFileSync(clientReportPath(source), JSON.stringify(payload, null, 2), 'utf-8')
+          ctx.logger?.info?.(`[dsh-plugin-git] client report (${source}): ${JSON.stringify(payload)}`)
+        } catch { /* diagnostics must never fail the request */ }
+        writeJson(res, 200, { ok: true })
+        return
+      }
       // A missing cwd is an error, never authority to modify the first workspace.
       const path = stringField(payload, 'path')!
       const required = (name: string) => stringField(payload, name)!
@@ -142,6 +189,12 @@ export function registerRoutes(ctx: any, service: GitService, options: { pollInt
         case '/dsh-git/log': {
           if (payload.limit !== undefined && (!Number.isInteger(payload.limit) || payload.limit < 1 || payload.limit > 500)) throw badRequest('limit must be between 1 and 500')
           writeJson(res, 200, { ok: true, value: await service.log(path, payload.limit) }); return
+        }
+        case '/dsh-git/open-in-editor': {
+          // Opens the user's own editor. A refusal (path outside the repo, deleted
+          // file) is reported as ok:false so the panel can show why nothing opened.
+          if (payload.line !== undefined && (!Number.isInteger(payload.line) || payload.line < 1)) throw badRequest('line must be a positive integer')
+          writeJson(res, 200, await editor.open({ repo: path, file: optional('file'), line: payload.line })); return
         }
         default: writeJson(res, 404, { ok: false, error: 'Not found' })
       }

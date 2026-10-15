@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { readFileSync, rmSync } from 'node:fs'
 import { loadTs } from './helpers/load-ts.mjs'
-const { registerRoutes } = await loadTs('src/host/routes.ts')
+const { registerRoutes, clientReportPath } = await loadTs('src/host/routes.ts')
 
 class Response extends EventEmitter {
   destroyed = false
@@ -100,4 +101,39 @@ test('SSE reports poll errors and republishes a recovery snapshot', async t => {
   failed = false
   await nextEvent(res, 'status')
   assert.match(res.events('status-error')[0], /Git locked/)
+})
+
+test('the editor route validates its payload before touching the filesystem', async t => {
+  const opened = []
+  const runtime = setup({}, { editorLauncher: { open: async target => { opened.push(target); return { ok: true, editor: 'VS Code', target: target.file } } } })
+  t.after(runtime.dispose)
+  for (const payload of [{}, { path: '' }, { path: 'R', line: 0 }, { path: 'R', line: 1.5 }, { path: 'R', file: 42 }]) {
+    const res = await request(runtime.handler, '/dsh-git/open-in-editor', payload)
+    assert.equal(res.status, 400, JSON.stringify(payload))
+  }
+  assert.deepEqual(opened, [])
+  const ok = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'src/a.ts', line: 12 })
+  assert.equal(ok.status, 200)
+  assert.deepEqual(opened, [{ repo: 'R', file: 'src/a.ts', line: 12 }])
+  assert.equal(JSON.parse(ok.chunks.join('')).editor, 'VS Code')
+})
+
+test('the editor route forwards a refusal instead of inventing success', async t => {
+  const runtime = setup({}, { editorLauncher: { open: async () => ({ ok: false, error: '该文件已不存在，可能已被删除。' }) } })
+  t.after(runtime.dispose)
+  const res = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'gone.ts' })
+  assert.equal(res.status, 200)
+  assert.deepEqual(JSON.parse(res.chunks.join('')), { ok: false, error: '该文件已不存在，可能已被删除。' })
+})
+
+test('the client report route stores what the renderer reported and needs no repository', async t => {
+  let gitCalls = 0
+  const runtime = setup({ status: async () => { gitCalls++; return baseline } })
+  t.after(runtime.dispose)
+  t.after(() => { try { rmSync(clientReportPath(), { force: true }) } catch { /* already gone */ } })
+  const report = { build: 'test-build', stylesElement: true, stylesLength: 42, probeUiFont: 'Microsoft YaHei' }
+  const res = await request(runtime.handler, '/dsh-git/client-report', report)
+  assert.equal(res.status, 200)
+  assert.deepEqual(JSON.parse(readFileSync(clientReportPath(), 'utf-8')), report)
+  assert.equal(gitCalls, 0)
 })

@@ -13,9 +13,10 @@ registerHooks({
     if (context.parentURL?.endsWith('/diff/ChangesTab.tsx')) {
       if (specifier === 'react') return virtual(`export default {}; ${['useState', 'useEffect', 'useMemo'].map(name => `export const ${name}=(...args)=>globalThis.__diffHookHarness.${name}(...args);`).join(' ')}`)
       if (specifier === 'react/jsx-runtime') return virtual('export const jsx=(type,props)=>({type,props}); export const jsxs=jsx; export const Fragment="fragment";')
-      if (specifier.endsWith('/icons.js')) return virtual(['IconBranch', 'IconCheck', 'IconChevronDown', 'IconDiff', 'IconFile', 'IconRefresh'].map(name => `export const ${name}=()=>null;`).join(' '))
+      if (specifier.endsWith('/icons.js')) return virtual(['IconBranch', 'IconCheck', 'IconChevronDown', 'IconDiff', 'IconExternalLink', 'IconFile', 'IconRefresh'].map(name => `export const ${name}=()=>null;`).join(' '))
       if (specifier.endsWith('/cwd-resolver.js')) return virtual('export const useWorkspaceCwd=()=>globalThis.__diffHookHarness.cwd;')
       if (specifier.endsWith('/use-git-status.js')) return virtual('export const useGitStatus=()=>globalThis.__diffHookHarness.status;')
+      if (specifier.endsWith('/loading-state.js')) return virtual('export const GitLoadingState=()=>null;')
     }
     if (specifier.endsWith('/ChangesTab.tsx')) return nextResolve(specifier, context)
     return nextResolve(specifier, context)
@@ -36,7 +37,10 @@ const diff = path => ({ base: 'HEAD', target: 'working', files: [{ path, inserti
 
 function fixture() {
   const original = gitApi.getDiff
+  const originalOpenInEditor = gitApi.openInEditor
   const requests = []
+  const editorRequests = []
+  let editorResult = { ok: true, editor: 'VS Code' }
   const slots = []
   let cursor = 0
   let effects = []
@@ -64,6 +68,7 @@ function fixture() {
     },
   }
   gitApi.getDiff = (cwd, base, target, signal) => new Promise((resolve, reject) => requests.push({ cwd, base, target, signal, resolve, reject })) // Ignore cancellation to prove publish guards.
+  gitApi.openInEditor = async (path, file) => { editorRequests.push({ path, file }); return editorResult }
   const render = () => { cursor = 0; dirty = false; tree = ChangesTab({}); return tree }
   const flush = () => {
     for (let i = 0; i < 20; i++) {
@@ -76,7 +81,9 @@ function fixture() {
   render(); flush()
   return {
     requests,
-    get result() { return slots[4].value }, // ChangesTab: selection, comparison, dropdown, refresh, request result.
+    get editorRequests() { return editorRequests },
+    set editorResult(value) { editorResult = value },
+    get result() { return slots[5].value }, // ChangesTab: selection, comparison, dropdown, refresh, editor notice, request result.
     get tree() { return tree },
     updateStatus(patch) { state.status = { ...state.status, status: { ...state.status.status, ...patch } }; render(); flush() },
     switchCwd(cwd) { state.cwd = cwd; const beforeEffects = render(); flush(); return beforeEffects },
@@ -85,7 +92,7 @@ function fixture() {
     click(node) { node.props.onClick({ currentTarget: { closest: () => null } }); render(); flush() },
     keyDown(node, key) { node.props.onKeyDown({ key, stopPropagation() {}, currentTarget: { querySelector: () => null } }); render(); flush() },
     async settle() { await setImmediate(); flush() },
-    dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getDiff = original; delete globalThis.__diffHookHarness },
+    dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getDiff = original; gitApi.openInEditor = originalOpenInEditor; delete globalThis.__diffHookHarness },
   }
 }
 
@@ -120,10 +127,35 @@ test('comparison picker separates option copy, marks selection and disables miss
 test('repository loading has a skeleton and dedicated status component, not bare text', () => {
   const f = fixture()
   try {
+    const before = f.requests.length
     f.statusState({ status: null, loading: true, isGit: false })
     assert.equal(f.tree.props['aria-busy'], 'true')
     assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-toolbar-skeleton').length, 1)
-    assert.equal(nodes(f.tree, node => node.props?.repository === true).length, 1)
+    // 状态未就绪时不发差异请求，避免同一段等待被两个请求切成两段。
+    assert.equal(f.requests.length, before)
+  } finally { f.dispose() }
+})
+
+test('waiting for the repository status and waiting for the diff are one loading screen', async () => {
+  const f = fixture()
+  try {
+    // 仓库状态未就绪：头部骨架 + 唯一的加载画面。
+    f.statusState({ status: null, loading: true, isGit: false })
+    assert.equal(f.tree.props['aria-busy'], 'true')
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-toolbar-skeleton').length, 1)
+    assert.equal(nodes(f.tree, node => node.type?.name === 'ChangesLoading').length, 1)
+
+    // 状态就绪、差异仍在路上：头部换成真实内容，但加载画面还是同一个（文案相同），
+    // 所以用户看到的是一次加载，而不是先「正在加载仓库」再「正在读取文件差异」。
+    f.statusState({ status: initialStatus(), loading: false, isGit: true })
+    assert.equal(nodes(f.tree, node => node.type?.name === 'ChangesLoading').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-toolbar-skeleton').length, 0)
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-compare-control').length, 1)
+
+    f.requests.at(-1).resolve(diff('src/a.ts'))
+    await f.settle()
+    assert.equal(nodes(f.tree, node => node.type?.name === 'ChangesLoading').length, 0)
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-file-list').length, 1)
   } finally { f.dispose() }
 })
 
@@ -135,6 +167,43 @@ test('clean working tree omits zero line statistics and displays an intentional 
     assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-stat-badge').length, 0)
     assert.equal(nodes(f.tree, node => node.props?.children === '工作区很干净').length, 1)
     assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-file-list').length, 0)
+  } finally { f.dispose() }
+})
+
+test('the open file offers an external editor button that reports what the host did', async () => {
+  const f = fixture()
+  try {
+    f.requests[0].resolve(diff('src/a.ts'))
+    await f.settle()
+    const button = nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-open-editor'))
+    assert.equal(button.length, 1)
+    assert.equal(button[0].props.title, '在外部编辑器中打开这个文件')
+    // Path, stats and the action share one header row: wrapping them produced a tall
+    // header with the button floating in the middle.
+    const header = nodes(f.tree, node => node.props?.className === 'dsh-git-diff-header')
+    assert.equal(header.length, 1)
+    assert.equal(nodes(header[0], node => node.props?.className === 'dsh-git-diff-file').length, 1)
+    assert.equal(nodes(header[0], node => node.props?.className === 'dsh-git-diff-path').length, 1)
+    f.click(button[0])
+    await f.settle()
+    assert.deepEqual(f.editorRequests, [{ path: '/a', file: 'src/a.ts' }])
+    const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-editor-notice')
+    assert.equal(notice.length, 1)
+    assert.match(notice[0].props.children, /已用 VS Code 打开/)
+  } finally { f.dispose() }
+})
+
+test('a refused open surfaces the host reason and never claims success', async () => {
+  const f = fixture()
+  try {
+    f.requests[0].resolve(diff('src/a.ts'))
+    await f.settle()
+    f.editorResult = { ok: false, error: '文件已不存在，可能已被删除或重命名' }
+    f.click(nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-open-editor'))[0])
+    await f.settle()
+    const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-error')
+    assert.equal(notice.length, 1)
+    assert.equal(notice[0].props.children, '文件已不存在，可能已被删除或重命名')
   } finally { f.dispose() }
 })
 

@@ -1,12 +1,14 @@
 import React, { useState } from 'react'
 import { BranchChip } from './chips/BranchChip.js'
 import { ChangesTab } from './diff/ChangesTab.js'
-import { IconDiff, IconHistory, IconBranchPlus, IconFolderTree } from './icons.js'
+import { IconDiff } from './icons.js'
 import { injectStyles, disposeStyles } from './styles.js'
+import { reportClientState } from './diagnostics.js'
 import { useWorkspaceContext } from './cwd-resolver.js'
 import { createWorktreeOpener } from './workspace-actions.js'
-import { createGitPanelOpener, GIT_PANEL_TYPES, GIT_PANEL_TITLES, type GitPanelView } from './sidebar-actions.js'
+import { createGitPanelOpener, GIT_SIDEBAR_TITLE, GIT_SIDEBAR_TYPE } from './sidebar-actions.js'
 import { GitSidebarPanel } from './panels/GitSidebarPanel.js'
+import { noteGitSidebarError } from './panels/navigation.js'
 import { installHeroControls } from './hero-registration.js'
 
 export const inject = ['slots', 'sessions', 'workspaces', 'uiWorkspace']
@@ -31,7 +33,7 @@ function SessionHeaderGitControls(props: any) {
 }
 
 export function apply(ctx: any): void {
-  ctx.effect(() => { injectStyles(); return disposeStyles }, 'dsh-plugin-git: styles')
+  ctx.effect(() => { injectStyles(); reportClientState(); return disposeStyles }, 'dsh-plugin-git: styles')
   ctx.inject(['slots', 'sessions', 'workspaces', 'uiWorkspace'], (scope: any) => {
     const sharedProps = {
       gitSessionsSource: scope.sessions.list,
@@ -55,20 +57,30 @@ export function apply(ctx: any): void {
     }, SessionHeaderGitControls))
 
     scope.inject(['betterSidebar'], (sideCtx: any) => {
-      const icons = { changes: IconDiff, history: IconHistory, 'create-branch': IconBranchPlus, 'create-worktree': IconFolderTree, worktrees: IconFolderTree }
-      for (const view of Object.keys(GIT_PANEL_TYPES) as GitPanelView[]) {
-        sideCtx.effect(() => sideCtx.betterSidebar.registerTab({
-          id: GIT_PANEL_TYPES[view], title: () => GIT_PANEL_TITLES[view],
-          description: () => view === 'changes' ? '查看工作区与上游差异' : GIT_PANEL_TITLES[view],
-          icon: (size = 16) => React.createElement(icons[view], { size }),
-          order: view === 'changes' ? 15 : 16, single: true,
-          component: (props: any) => React.createElement(GitSidebarPanel, {
-            ...sharedProps, ...props, view,
-            sessionId: props.scope?.sessionId || props.sessionId,
-            onClose: () => sideCtx.betterSidebar.closeTab(props.tab.id, props.scope),
-          }),
-        }), `dsh-plugin-git: sidebar ${view}`)
-      }
+      // ONE launcher entry. Every Git page (changes / history / worktrees, plus the
+      // two creation forms) is a tab INSIDE this single native sidebar tab.
+      sideCtx.effect(() => {
+        try {
+          return sideCtx.betterSidebar.registerTab({
+            id: GIT_SIDEBAR_TYPE, title: () => GIT_SIDEBAR_TITLE,
+            description: () => '变更、提交记录与工作树',
+            icon: (size = 16) => React.createElement(IconDiff, { size }),
+            order: 15, single: true,
+            component: (props: any) => React.createElement(GitSidebarPanel, {
+              ...sharedProps, ...props,
+              sessionId: props.scope?.sessionId || props.sessionId,
+              onClose: () => sideCtx.betterSidebar.closeTab(props.tab.id, props.scope),
+            }),
+          })
+        } catch (error) {
+          // A refused registration means no Git entry at all: keep the reason so the
+          // header button can report it instead of blaming a missing sidebar plugin.
+          const message = error instanceof Error ? error.message : String(error)
+          noteGitSidebarError(message)
+          console.error('[dsh-plugin-git] 侧栏 Git 入口注册失败：' + message)
+          return () => {}
+        }
+      }, 'dsh-plugin-git: sidebar')
     })
   })
 }

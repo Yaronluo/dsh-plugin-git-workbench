@@ -58,6 +58,10 @@ export const gitApi = {
   getLog(path: string, limit = 50, signal?: AbortSignal): Promise<GitGraphCommit[]> {
     return postJson('log', { path, limit }, signal)
   },
+  /** Opens a repository-relative file (or the repository itself) in the user's editor. */
+  openInEditor(path: string, file?: string, line?: number): Promise<{ ok: boolean; editor?: string; target?: string; error?: string }> {
+    return postJson('open-in-editor', { path, file, line })
+  },
   subscribeEvents(path: string, onStatus: (status: RepoStatus) => void, onError?: (error: Error) => void): () => void {
     if (typeof EventSource === 'undefined') return () => {}
     let source: EventSource

@@ -16,6 +16,7 @@ const names = [
   'IconBranch', 'IconChevronDown', 'IconSearch', 'IconCheck', 'IconDiff',
   'IconFile', 'IconRefresh', 'IconClose', 'IconGraph', 'IconWorktree',
   'IconBranchPlus', 'IconHistory', 'IconFolderTree', 'IconChevronRight',
+  'IconExternalLink',
 ]
 
 test('all existing and new icons share a rounded, currentColor 24px coordinate system', () => {
