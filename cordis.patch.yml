@@ -1,0 +1,4 @@
+# DeepSeek Harness cordis patch
+- insert:
+    - id: git-plugin
+      name: dsh-plugin-git
