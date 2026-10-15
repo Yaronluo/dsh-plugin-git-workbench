@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import type { DiffView } from '../../core/types.js'
 import { gitApi } from '../api.js'
-import { IconBranch, IconChevronDown, IconDiff, IconFile, IconRefresh } from '../icons.js'
+import { IconBranch, IconCheck, IconChevronDown, IconDiff, IconFile, IconRefresh } from '../icons.js'
 import { useWorkspaceCwd } from '../cwd-resolver.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
+
+function ChangesLoading({ repository = false }: { repository?: boolean }) {
+  return <div className="dsh-git-changes-loading" role="status" aria-live="polite">
+    <div className="dsh-git-loading-icon"><IconRefresh size={20} className="dsh-git-spin" /></div>
+    <strong>{repository ? '正在加载仓库' : '正在读取文件差异'}</strong>
+    <p>{repository ? '分支和文件变更即将显示在这里' : '正在整理变更文件与代码对比'}</p>
+    <div className="dsh-git-loading-preview" aria-hidden="true"><i /><i /><i /></div>
+  </div>
+}
 
 export function ChangesTab(props: any) {
   const cwd = useWorkspaceCwd(props)
@@ -54,20 +63,23 @@ export function ChangesTab(props: any) {
     return diffView.files.find(f => f.path === selectedFile) || diffView.files[0] || null
   }, [diffView, selectedFile])
 
-  if (statusLoading && !status && !statusError) return <div className="dsh-git-changes-panel" role="status">加载中…</div>
-  if (statusError && !status) return <div className="dsh-git-changes-panel"><div className="dsh-git-error" role="alert">{statusError}</div><button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reloadStatus}>重试</button></div>
+  if (statusLoading && !status && !statusError) return <div className="dsh-git-changes-panel" aria-busy="true">
+    <div className="dsh-git-toolbar-skeleton" aria-hidden="true"><i /><i /></div>
+    <ChangesLoading repository />
+  </div>
+  if (statusError && !status) return <div className="dsh-git-changes-panel"><div className="dsh-git-empty-state">
+    <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>暂时无法加载仓库</strong>
+    <p className="dsh-git-state-error" role="alert">{statusError}</p>
+    <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reloadStatus}><IconRefresh size={14} />重新加载</button>
+  </div></div>
   // Non-Git repository empty state
   if (!statusLoading && !isGit) {
     return (
-      <div className="dsh-git-changes-panel" style={{ alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        {statusError && <div className="dsh-git-error" role="alert">{statusError}</div>}
-        <IconDiff size={40} style={{ color: 'var(--dsw-alias-label-secondary)', marginBottom: 12 }} />
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--dsw-alias-label-primary)', marginBottom: 6 }}>
-          当前目录不是 Git 仓库
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--dsw-alias-label-secondary)', textAlign: 'center', maxWidth: 280, marginBottom: 16 }}>
-          在项目中执行 <code>git init</code> 后即可在此查看分支、未提交更改以及代码差异对比。
-        </div>
+      <div className="dsh-git-changes-panel"><div className="dsh-git-empty-state">
+        {statusError && <div className="dsh-git-state-error" role="alert">{statusError}</div>}
+        <div className="dsh-git-state-icon"><IconDiff size={24} /></div>
+        <strong>当前目录不是 Git 仓库</strong>
+        <p>在项目中执行 <code>git init</code> 后，即可查看分支和文件差异。</p>
         <button
           type="button"
           className="dsh-git-btn dsh-git-btn-primary"
@@ -77,127 +89,78 @@ export function ChangesTab(props: any) {
         >
           重新加载
         </button>
-      </div>
+      </div></div>
     )
   }
 
   return (
     <div className="dsh-git-changes-panel">
-      {/* Top Header Bar */}
       <div className="dsh-git-changes-header">
-        <div className="dsh-git-header-left">
-          {/* Branch Mode Dropdown */}
-          <span className="dsh-git-muted">{status?.branch || 'HEAD'}</span>
-
-          {/* Ins / Del Summary Badge */}
-          {diffView && (
-            <div className="dsh-git-stat-badge">
-              <span className="dsh-git-ins">+{diffView.totalInsertions}</span>
-              <span className="dsh-git-del">-{diffView.totalDeletions}</span>
-            </div>
-          )}
-
-          {/* Comparison target dropdown */}
-          <div style={{ position: 'relative' }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setCompareDropdownOpen(false) } }}>
-            <button
-              type="button"
-              className="dsh-git-selector-btn"
-              onClick={() => setCompareDropdownOpen(!compareDropdownOpen)}
-              title="切换对比基准"
-              aria-expanded={compareDropdownOpen}
-              aria-controls="dsh-git-compare-options"
-            >
-              <IconBranch size={12} />
-              <span>
-                {compareTarget === 'branch-upstream'
-                  ? `${status?.branch || 'HEAD'} → ${upstream || '未配置上游'}`
-                  : '工作区 → HEAD'}
-              </span>
-              <IconChevronDown size={11} />
-            </button>
-
-            {compareDropdownOpen && (
-              <>
-                <div
-                  style={{ position: 'fixed', inset: 0, zIndex: 999 }}
-                  onClick={() => setCompareDropdownOpen(false)}
-                />
-                <div
-                  id="dsh-git-compare-options"
-                  role="group"
-                  aria-label="对比基准"
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 4px)',
-                    left: 0,
-                    width: 220,
-                    background: 'var(--dsw-alias-bg-layer-1)',
-                    border: '1px solid var(--dsw-alias-border-l1)',
-                    borderRadius: 8,
-                    boxShadow: '0 4px 12px var(--dsw-alias-bg-overlay)',
-                    zIndex: 1000,
-                    padding: 4,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="dsh-git-branch-item"
-                    onClick={() => {
-                      setCompareTarget('working-head')
-                      setCompareDropdownOpen(false)
-                    }}
-                  >
-                    工作区 vs HEAD (未提交更改)
-                  </button>
-                  <button
-                    type="button"
-                    className="dsh-git-branch-item"
-                    onClick={() => {
-                      setCompareTarget('branch-upstream')
-                      setCompareDropdownOpen(false)
-                    }}
-                  >
-                    {status?.branch || 'HEAD'} vs {upstream || '未配置上游'}
-                  </button>
-                </div>
-              </>
-            )}
+        <div className="dsh-git-repo-row">
+          <span className="dsh-git-current-branch" title={status?.branch || 'HEAD'}><IconBranch size={15} /><span>{status?.branch || 'HEAD'}</span></span>
+          <div className="dsh-git-change-summary">
+            {diffView && <span className="dsh-git-file-count">{diffView.files.length ? `${diffView.files.length} 个文件` : '无变更'}</span>}
+            {!!diffView?.files.length && <div className="dsh-git-stat-badge" aria-label={`新增 ${diffView.totalInsertions} 行，删除 ${diffView.totalDeletions} 行`}>
+              <span className="dsh-git-ins">+{diffView.totalInsertions}</span><span className="dsh-git-del">−{diffView.totalDeletions}</span>
+            </div>}
           </div>
-        </div>
-
-        {/* Right Action Icons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button
-            type="button"
-            className="dsh-git-selector-btn"
-            onClick={() => {
-              reloadStatus()
-              setRefresh(value => value + 1)
-            }}
-            title="刷新"
-            style={{ padding: '4px 6px' }}
-          >
-            <IconRefresh size={13} className={loadingDiff ? 'animate-spin' : ''} />
+          <button type="button" className="dsh-git-refresh-btn" aria-label="刷新变更" title="刷新变更" disabled={loadingDiff || statusLoading} onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}>
+            <IconRefresh size={15} className={loadingDiff || statusLoading ? 'dsh-git-spin' : ''} />
           </button>
+        </div>
+        <div className="dsh-git-compare-control" onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.stopPropagation(); setCompareDropdownOpen(false)
+            event.currentTarget.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
+          }
+        }}>
+          <button type="button" className={`dsh-git-compare-trigger ${compareDropdownOpen ? 'dsh-git-compare-trigger-open' : ''}`} onClick={() => setCompareDropdownOpen(!compareDropdownOpen)} title="切换对比基准" aria-expanded={compareDropdownOpen}>
+            <IconDiff size={15} />
+            <span className="dsh-git-compare-label">{compareTarget === 'working-head' ? '工作区' : (status?.branch || 'HEAD')}</span>
+            <span className="dsh-git-compare-arrow" aria-hidden="true">→</span>
+            <span className="dsh-git-compare-base">{compareTarget === 'working-head' ? 'HEAD' : (upstream || '未配置上游')}</span>
+            <IconChevronDown size={13} />
+          </button>
+          {compareDropdownOpen && <>
+            <div className="dsh-git-compare-backdrop" onClick={() => setCompareDropdownOpen(false)} />
+            <div className="dsh-git-compare-menu" role="group" aria-label="对比基准">
+              <div className="dsh-git-compare-menu-heading">对比基准</div>
+              <button type="button" className="dsh-git-compare-option" aria-pressed={compareTarget === 'working-head'} onClick={event => {
+                setCompareTarget('working-head'); setCompareDropdownOpen(false)
+                event.currentTarget.closest('.dsh-git-compare-control')?.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
+              }}>
+                <span className="dsh-git-option-icon"><IconDiff size={17} /></span>
+                <span className="dsh-git-option-copy"><strong>未提交的更改</strong><span>工作区与 HEAD 对比</span></span>
+                {compareTarget === 'working-head' && <IconCheck size={16} />}
+              </button>
+              <button type="button" className="dsh-git-compare-option" disabled={!upstream} aria-pressed={compareTarget === 'branch-upstream'} onClick={event => {
+                setCompareTarget('branch-upstream'); setCompareDropdownOpen(false)
+                event.currentTarget.closest('.dsh-git-compare-control')?.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
+              }}>
+                <span className="dsh-git-option-icon"><IconBranch size={17} /></span>
+                <span className="dsh-git-option-copy"><strong>与上游分支对比{!upstream && <small>未配置</small>}</strong><span>{upstream ? `${status?.branch || 'HEAD'} → ${upstream}` : '配置上游分支后可用'}</span></span>
+                {compareTarget === 'branch-upstream' && <IconCheck size={16} />}
+              </button>
+            </div>
+          </>}
         </div>
       </div>
 
-      {(statusError || diffError) && <div className="dsh-git-error" role="alert" style={{ padding: 12 }}>{statusError || diffError}</div>}
-      {/* Main Body: a native-sidebar empty state, or the file/diff browser. */}
-      {!loadingDiff && !diffError && diffView && diffView.files.length === 0 ? <div className="dsh-git-empty-state">
-        <IconDiff size={48} /><strong>暂无文件更改</strong><p>此项目中的更改将显示在此处。</p>
+      {statusError && <div className="dsh-git-changes-notice dsh-git-error" role="alert">{statusError}</div>}
+      {loadingDiff ? <ChangesLoading /> : diffError ? <div className="dsh-git-empty-state">
+        <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>无法读取差异</strong>
+        <p className="dsh-git-state-error" role="alert">{diffError}</p>
+        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}><IconRefresh size={14} />重试</button>
+      </div> : diffView && diffView.files.length === 0 ? <div className="dsh-git-empty-state">
+        <div className="dsh-git-state-icon dsh-git-state-clean"><IconCheck size={26} /></div>
+        <strong>{compareTarget === 'working-head' ? '工作区很干净' : '与上游分支一致'}</strong>
+        <p>{compareTarget === 'working-head' ? '暂无未提交的更改，新的变更会显示在这里。' : '当前分支与上游之间没有文件差异。'}</p>
       </div> : <div className="dsh-git-changes-body">
         {/* Left Changed Files List */}
         <div className="dsh-git-file-list">
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dsw-alias-label-secondary)', padding: '4px 8px 8px 8px', textTransform: 'uppercase' }}>
-            变更文件 ({diffView?.files.length || 0})
-          </div>
+          <div className="dsh-git-file-list-heading"><span>变更文件</span><span>{diffView?.files.length || 0}</span></div>
 
-          {loadingDiff && !diffView ? (
-            <div style={{ padding: '20px 8px', textAlign: 'center', color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }}>
-              加载中…
-            </div>
-          ) : diffError ? <div className="dsh-git-muted" style={{ padding: 12 }}>差异加载失败，请刷新重试。</div> : !diffView || diffView.files.length === 0 ? (
+          {!diffView || diffView.files.length === 0 ? (
             <div style={{ padding: '20px 8px', textAlign: 'center', color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }}>
               当前无可对比的更改
             </div>

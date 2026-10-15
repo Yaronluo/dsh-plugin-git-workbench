@@ -13,7 +13,7 @@ registerHooks({
     if (context.parentURL?.endsWith('/diff/ChangesTab.tsx')) {
       if (specifier === 'react') return virtual(`export default {}; ${['useState', 'useEffect', 'useMemo'].map(name => `export const ${name}=(...args)=>globalThis.__diffHookHarness.${name}(...args);`).join(' ')}`)
       if (specifier === 'react/jsx-runtime') return virtual('export const jsx=(type,props)=>({type,props}); export const jsxs=jsx; export const Fragment="fragment";')
-      if (specifier.endsWith('/icons.js')) return virtual(['IconBranch', 'IconChevronDown', 'IconDiff', 'IconFile', 'IconRefresh'].map(name => `export const ${name}=()=>null;`).join(' '))
+      if (specifier.endsWith('/icons.js')) return virtual(['IconBranch', 'IconCheck', 'IconChevronDown', 'IconDiff', 'IconFile', 'IconRefresh'].map(name => `export const ${name}=()=>null;`).join(' '))
       if (specifier.endsWith('/cwd-resolver.js')) return virtual('export const useWorkspaceCwd=()=>globalThis.__diffHookHarness.cwd;')
       if (specifier.endsWith('/use-git-status.js')) return virtual('export const useGitStatus=()=>globalThis.__diffHookHarness.status;')
     }
@@ -81,9 +81,18 @@ function fixture() {
     updateStatus(patch) { state.status = { ...state.status, status: { ...state.status.status, ...patch } }; render(); flush() },
     switchCwd(cwd) { state.cwd = cwd; const beforeEffects = render(); flush(); return beforeEffects },
     compare(mode) { slots[1].value = mode; render(); flush() },
+    statusState(patch) { state.status = { ...state.status, ...patch }; render(); flush() },
+    click(node) { node.props.onClick({ currentTarget: { closest: () => null } }); render(); flush() },
+    keyDown(node, key) { node.props.onKeyDown({ key, stopPropagation() {}, currentTarget: { querySelector: () => null } }); render(); flush() },
     async settle() { await setImmediate(); flush() },
     dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getDiff = original; delete globalThis.__diffHookHarness },
   }
+}
+
+function nodes(tree, predicate) {
+  if (!tree || typeof tree !== 'object') return []
+  if (Array.isArray(tree)) return tree.flatMap(child => nodes(child, predicate))
+  return [...(predicate(tree) ? [tree] : []), ...nodes(tree.props?.children, predicate)]
 }
 
 function containsFile(tree, path) {
@@ -92,6 +101,42 @@ function containsFile(tree, path) {
   if (tree.props?.title === path) return true
   return containsFile(tree.props?.children, path)
 }
+
+test('comparison picker separates option copy, marks selection and disables missing upstream', () => {
+  const f = fixture()
+  try {
+    f.updateStatus({ upstream: undefined })
+    f.click(nodes(f.tree, node => node.props?.title === '切换对比基准')[0])
+    const options = nodes(f.tree, node => node.props?.className === 'dsh-git-compare-option')
+    assert.equal(options.length, 2)
+    assert.equal(options[0].props['aria-pressed'], true)
+    assert.equal(options[1].props.disabled, true)
+    assert.equal(nodes(options[0], node => node.type === 'strong').length, 1)
+    f.keyDown(nodes(f.tree, node => node.props?.className === 'dsh-git-compare-control')[0], 'Escape')
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-compare-menu').length, 0)
+  } finally { f.dispose() }
+})
+
+test('repository loading has a skeleton and dedicated status component, not bare text', () => {
+  const f = fixture()
+  try {
+    f.statusState({ status: null, loading: true, isGit: false })
+    assert.equal(f.tree.props['aria-busy'], 'true')
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-toolbar-skeleton').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.repository === true).length, 1)
+  } finally { f.dispose() }
+})
+
+test('clean working tree omits zero line statistics and displays an intentional empty state', async () => {
+  const f = fixture()
+  try {
+    f.requests[0].resolve({ files: [], totalInsertions: 0, totalDeletions: 0 })
+    await f.settle()
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-stat-badge').length, 0)
+    assert.equal(nodes(f.tree, node => node.props?.children === '工作区很干净').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-file-list').length, 0)
+  } finally { f.dispose() }
+})
 
 test('ChangesTab refetches on branch, head and revision changes despite unchanged dirty count', async () => {
   const f = fixture()
