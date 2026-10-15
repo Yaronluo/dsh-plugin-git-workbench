@@ -28,7 +28,10 @@ export class GitService {
    */
   async isGitRepo(cwd: string): Promise<boolean> {
     try {
-      const result = await this.runner.run(['rev-parse', '--is-inside-work-tree'], cwd)
+      if (!cwd || typeof cwd !== 'string') return false
+      const targetDir = resolve(cwd.trim().replace(/^["']|["']$/g, ''))
+      if (!existsSync(targetDir)) return false
+      const result = await this.runner.run(['rev-parse', '--is-inside-work-tree'], targetDir)
       return result.exitCode === 0 && result.stdout.trim() === 'true'
     } catch {
       return false
@@ -40,9 +43,11 @@ export class GitService {
    */
   async getRepoRoot(cwd: string): Promise<string | null> {
     try {
-      const result = await this.runner.run(['rev-parse', '--show-toplevel'], cwd)
+      if (!cwd || typeof cwd !== 'string') return null
+      const targetDir = resolve(cwd.trim().replace(/^["']|["']$/g, ''))
+      const result = await this.runner.run(['rev-parse', '--show-toplevel'], targetDir)
       if (result.exitCode === 0 && result.stdout.trim()) {
-        return result.stdout.trim()
+        return resolve(result.stdout.trim())
       }
       return null
     } catch {

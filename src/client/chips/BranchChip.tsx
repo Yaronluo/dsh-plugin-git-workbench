@@ -7,14 +7,19 @@ import { BranchPopover } from './BranchPopover.js'
 import { CreateBranchDialog } from '../dialogs/CreateBranchDialog.js'
 import { GitGraphDialog } from '../dialogs/GitGraphDialog.js'
 import { CreateWorktreeDialog, WorktreeManagerDialog } from '../dialogs/WorktreeDialogs.js'
-import { injectStyles } from '../styles.js'
+import { resolveWorkspaceCwd } from '../cwd-resolver.js'
 
 export function BranchChip(props: any) {
   // Inject component styles
   injectStyles()
 
+  // Track session store updates if useSessions is passed
+  if (typeof props?.useSessions === 'function') {
+    props.useSessions((state: any) => state)
+  }
+
   // Resolve cwd from props or active workspace
-  const cwd = props?.cwd || props?.workspace?.path || props?.session?.cwd || ''
+  const cwd = resolveWorkspaceCwd(props)
   const { status, isGit, loading, reload } = useGitStatus(cwd)
 
   const [open, setOpen] = useState(false)

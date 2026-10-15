@@ -3,15 +3,16 @@ import { BranchChip } from './chips/BranchChip.js'
 import { ChangesTab } from './diff/ChangesTab.js'
 import { IconDiff, IconClose } from './icons.js'
 import { injectStyles } from './styles.js'
+import { resolveWorkspaceCwd } from './cwd-resolver.js'
 
-export const inject = ['slots']
+export const inject = ['slots', 'conversation', 'sessions', 'workspaces', 'uiWorkspace']
 
 /**
  * Floating / Modal Changes Panel Toggle for direct access
  */
 function ChangesToggleBtn(props: any) {
   const [open, setOpen] = useState(false)
-  const cwd = props?.cwd || props?.workspace?.path || props?.session?.cwd || ''
+  const cwd = resolveWorkspaceCwd(props)
 
   return (
     <>
@@ -77,7 +78,32 @@ function ChangesToggleBtn(props: any) {
 export function apply(ctx: any): void {
   injectStyles()
 
-  ctx.inject(['slots'], (scope: any) => {
+  ctx.inject(['slots', 'conversation', 'sessions', 'workspaces', 'uiWorkspace'], (scope: any) => {
+    // Store scope globally for subcomponents/dialogs
+    if (typeof window !== 'undefined') {
+      ;(window as any).__dsh_scope__ = scope
+    }
+
+    const cwdOf = (sessionId?: string): string => {
+      if (sessionId && scope.sessions?.list) {
+        const snap = scope.sessions.list.getSnapshot()
+        if (snap?.byId?.[sessionId]?.cwd) return snap.byId[sessionId].cwd
+      }
+      if (scope.uiWorkspace?.activeWorkspace?.path) {
+        return scope.uiWorkspace.activeWorkspace.path
+      }
+      const items = scope.workspaces?.list?.getSnapshot()?.items || []
+      return items[0]?.path || ''
+    }
+
+    const chipEntry = {
+      id: 'dsh-plugin-git',
+      order: 100,
+      inject: () => ({
+        cwdOf,
+      }),
+    }
+
     // 1. Register branch chip into conversation input context slot
     let mounted = false
     const disposeContext = scope.slots.inject('conversation.input.selector.context', () => {
@@ -86,7 +112,7 @@ export function apply(ctx: any): void {
         return scope.slots.register(
           {
             name: 'conversation.input.selector.context',
-            order: 20,
+            ...chipEntry,
           },
           BranchChip
         )
@@ -104,7 +130,7 @@ export function apply(ctx: any): void {
           return scope.slots.register(
             {
               name: 'conversation.input.dock',
-              order: 20,
+              ...chipEntry,
             },
             BranchChip
           )
@@ -121,6 +147,7 @@ export function apply(ctx: any): void {
           {
             name: 'conversation.session.header.utilities',
             order: 15,
+            ...chipEntry,
           },
           ChangesToggleBtn
         )

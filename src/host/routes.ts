@@ -121,7 +121,14 @@ export function registerRoutes(ctx: any, service: GitService): () => void {
       return
     }
 
-    const path = payload.path
+    let path = payload.path
+    if (!path || typeof path !== 'string') {
+      const list = ctx.workspaceRegistry?.list?.() || []
+      if (list.length > 0 && list[0]?.path) {
+        path = list[0].path
+      }
+    }
+
     if (!path && pathname !== '/dsh-git/health') {
       writeJson(res, 400, { ok: false, error: 'Path is required' })
       return

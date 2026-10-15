@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react'
 import type { DiffFile, DiffView } from '../../core/types.js'
 import { gitApi } from '../api.js'
 import { IconBranch, IconChevronDown, IconDiff, IconFile, IconRefresh } from '../icons.js'
-import { useGitStatus } from '../hooks/use-git-status.js'
 import { injectStyles } from '../styles.js'
+import { resolveWorkspaceCwd } from '../cwd-resolver.js'
 
 export function ChangesTab(props: any) {
   injectStyles()
 
-  const cwd = props?.cwd || props?.workspace?.path || props?.session?.cwd || ''
+  const cwd = resolveWorkspaceCwd(props)
   const { status, isGit, loading: statusLoading, reload: reloadStatus } = useGitStatus(cwd)
 
   const [diffView, setDiffView] = useState<DiffView | null>(null)
