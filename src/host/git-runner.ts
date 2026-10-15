@@ -26,6 +26,7 @@ export function createGitRunner(): GitRunner {
             stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true,
             signal,
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
           })
         } catch (err) {
           return reject(err)
@@ -42,7 +43,8 @@ export function createGitRunner(): GitRunner {
           resolve({
             stdout: Buffer.concat(outChunks).toString('utf-8'),
             stderr: Buffer.concat(errChunks).toString('utf-8'),
-            exitCode: code ?? 0,
+            // A signal-terminated child is never a successful Git command.
+            exitCode: code ?? -1,
           })
         })
       })

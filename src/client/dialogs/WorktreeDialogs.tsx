@@ -1,201 +1,112 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import type { WorktreeItem } from '../../core/types.js'
 import { gitApi } from '../api.js'
 import { IconClose, IconWorktree } from '../icons.js'
+import { DialogShell } from './DialogShell.js'
 
-export function CreateWorktreeDialog({
-  path,
-  currentBranch,
-  onClose,
-  onSuccess,
-}: {
-  path: string
-  currentBranch: string
-  onClose: () => void
-  onSuccess: (worktreePath: string) => void
+const message = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : '操作失败'
+
+export function CreateWorktreeDialog({ path, currentBranch, onClose, onSuccess, onOpenWorktree }: {
+  path: string; currentBranch: string; onClose: () => void; onSuccess: (worktreePath: string) => void
+  onOpenWorktree?: (path: string) => Promise<void>
 }) {
   const [name, setName] = useState('')
   const [base, setBase] = useState(currentBranch)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) return
-
+  // Preserve a successfully created worktree if opening fails: retry must not create it twice.
+  const [createdPath, setCreatedPath] = useState<string | null>(null)
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (submitting || (!createdPath && !name.trim())) return
     setSubmitting(true)
     setError(null)
     try {
-      const res = await gitApi.createWorktree(path, name.trim(), base.trim() || undefined)
-      if (res.ok && res.path) {
-        onSuccess(res.path)
-        onClose()
-      } else {
-        setError(res.error || '创建 Worktree 失败')
+      let destination = createdPath
+      if (!destination) {
+        const result = await gitApi.createWorktree(path, name.trim(), base.trim() || undefined)
+        if (!result.ok || !result.path) throw new Error(message(result.error || '创建 Worktree 失败'))
+        destination = result.path
+        setCreatedPath(destination)
+        onSuccess(destination)
       }
-    } catch (err: any) {
-      setError(err?.message || '创建异常')
-    } finally {
-      setSubmitting(false)
-    }
+      if (onOpenWorktree) await onOpenWorktree(destination)
+      onClose()
+    } catch (error) { setError(message(error)) }
+    finally { setSubmitting(false) }
   }
-
-  return (
-    <div className="dsh-git-modal-overlay" onClick={onClose}>
-      <div className="dsh-git-modal-card" onClick={e => e.stopPropagation()}>
-        <div className="dsh-git-modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconWorktree size={16} />
-            <span>在 Worktree 中开始新会话</span>
-          </div>
-          <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4 }}>
-            <IconClose size={16} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="dsh-git-modal-body">
-            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-              Worktree 将为并行会话提供独立的代码工作树，避免多任务相互覆盖或切换分支影响其他操作。
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Worktree 任务标识</label>
-              <input
-                className="dsh-git-input"
-                placeholder="例如：feature-login 或 test-exp"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>基线分支</label>
-              <input
-                className="dsh-git-input"
-                value={base}
-                onChange={e => setBase(e.target.value)}
-              />
-            </div>
-
-            {error && (
-              <div style={{ color: '#dc2626', fontSize: 12.5, background: '#fef2f2', padding: '6px 10px', borderRadius: 6 }}>
-                {error}
-              </div>
-            )}
-          </div>
-
-          <div className="dsh-git-modal-footer">
-            <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={onClose}>
-              取消
-            </button>
-            <button
-              type="submit"
-              className="dsh-git-btn dsh-git-btn-primary"
-              disabled={submitting || !name.trim()}
-            >
-              {submitting ? '创建中...' : '开始独立会话'}
-            </button>
-          </div>
-        </form>
-      </div>
+  return <DialogShell title="创建 Worktree" onClose={onClose} busy={submitting}>
+    <div className="dsh-git-modal-header">
+      <span><IconWorktree size={16} /> 创建 Worktree</span>
+      <button type="button" aria-label="关闭" className="dsh-git-icon-btn" disabled={submitting} onClick={onClose}><IconClose size={16} /></button>
     </div>
-  )
+    <form onSubmit={handleSubmit}>
+      <div className="dsh-git-modal-body">
+        <div className="dsh-git-muted" style={{ fontSize: 13 }}>独立工作树可避免并行任务相互覆盖。{onOpenWorktree ? '创建后将在工作区中打开。' : '当前入口仅创建工作树，不自动创建会话。'}</div>
+        <label>Worktree 任务标识<input className="dsh-git-input" value={name} onChange={event => setName(event.target.value)} disabled={submitting || !!createdPath} placeholder="例如 feature-login" autoFocus /></label>
+        <label>基线分支<input className="dsh-git-input" value={base} onChange={event => setBase(event.target.value)} disabled={submitting || !!createdPath} /></label>
+        {createdPath && <div role="status">已创建：{createdPath}</div>}
+        {error && <div className="dsh-git-error" role="alert">{error}{createdPath ? '（工作树已保留，可重试打开）' : ''}</div>}
+      </div>
+      <div className="dsh-git-modal-footer">
+        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={submitting} onClick={onClose}>关闭</button>
+        <button type="submit" className="dsh-git-btn dsh-git-btn-primary" disabled={submitting || (!createdPath && !name.trim())}>{submitting ? '处理中…' : createdPath ? '重试打开工作区' : onOpenWorktree ? '创建并打开工作区' : '创建工作树'}</button>
+      </div>
+    </form>
+  </DialogShell>
 }
 
 export function WorktreeManagerDialog({ path, onClose }: { path: string; onClose: () => void }) {
   const [list, setList] = useState<WorktreeItem[]>([])
   const [loading, setLoading] = useState(true)
-
-  const reload = () => {
-    setLoading(true)
-    gitApi
-      .getWorktrees(path)
-      .then(res => setList(res))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }
-
+  const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [refresh, setRefresh] = useState(0)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   useEffect(() => {
-    reload()
-  }, [path])
+    const controller = new AbortController()
+    setList([])
+    setLoading(true)
+    setError(null)
+    gitApi.getWorktrees(path, controller.signal).then(result => {
+      if (!controller.signal.aborted) setList(result)
+    }).catch(error => {
+      if (!controller.signal.aborted) setError(message(error))
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [path, refresh])
 
-  const handleDelete = async (wtPath: string) => {
-    if (!confirm(`确定要移除 Worktree 目录 ${wtPath} 吗？`)) return
-    await gitApi.removeWorktree(path, wtPath)
-    reload()
+  const handleDelete = async (worktreePath: string) => {
+    if (deleting) return
+    setDeleting(worktreePath)
+    setError(null)
+    try {
+      // Intentionally no force option: dirty or locked worktrees must be refused by Git.
+      const result = await gitApi.removeWorktree(path, worktreePath)
+      if (!result.ok) throw new Error(message(result.error || '删除 Worktree 失败'))
+      if (alive.current) { setPendingDelete(null); setRefresh(value => value + 1) }
+    } catch (error) { if (alive.current) setError(message(error)) }
+    finally { if (alive.current) setDeleting(null) }
   }
-
-  return (
-    <div className="dsh-git-modal-overlay" onClick={onClose}>
-      <div className="dsh-git-modal-card" style={{ width: 640 }} onClick={e => e.stopPropagation()}>
-        <div className="dsh-git-modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconWorktree size={16} />
-            <span>管理 Git Worktrees</span>
-          </div>
-          <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4 }}>
-            <IconClose size={16} />
-          </button>
-        </div>
-
-        <div style={{ padding: '14px 18px', maxHeight: 360, overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', color: '#6b7280', padding: 20 }}>加载中...</div>
-          ) : list.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#6b7280', padding: 20 }}>暂无多余 Worktree</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {list.map(wt => (
-                <div
-                  key={wt.path}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 12px',
-                    borderRadius: 6,
-                    background: wt.isCurrent ? '#eff6ff' : '#fafafa',
-                    border: wt.isCurrent ? '1px solid #bfdbfe' : '1px solid #f3f4f6',
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
-                      <span>{wt.branch}</span>
-                      {wt.isCurrent && (
-                        <span style={{ fontSize: 11, background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: 10 }}>
-                          当前检出
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#6b7280', fontFamily: 'monospace' }}>
-                      {wt.path}
-                    </div>
-                  </div>
-
-                  {!wt.isCurrent && (
-                    <button
-                      type="button"
-                      className="dsh-git-btn dsh-git-btn-secondary"
-                      style={{ color: '#dc2626', borderColor: '#fca5a5', padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => handleDelete(wt.path)}
-                    >
-                      删除
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="dsh-git-modal-footer">
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={onClose}>
-            完成
-          </button>
-        </div>
-      </div>
+  return <DialogShell title="管理 Git Worktrees" onClose={onClose} busy={!!deleting} style={{ width: 640 }}>
+    <div className="dsh-git-modal-header">
+      <span><IconWorktree size={16} /> 管理 Git Worktrees</span>
+      <button type="button" aria-label="关闭" className="dsh-git-icon-btn" disabled={!!deleting} onClick={onClose}><IconClose size={16} /></button>
     </div>
-  )
+    <div className="dsh-git-modal-body" style={{ maxHeight: 360, overflowY: 'auto' }}>
+      {error && <div className="dsh-git-error" role="alert">{error}<button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting} onClick={() => setRefresh(value => value + 1)}>重新加载</button></div>}
+      {loading ? <div className="dsh-git-muted" role="status">加载中…</div> : !error && list.length === 0 ? <div className="dsh-git-muted">暂无 Worktree</div> : list.map(worktree => <div key={worktree.path} className="dsh-git-worktree-row">
+        <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}><strong>{worktree.branch || 'HEAD'}</strong>{worktree.isCurrent && '（当前检出）'}{worktree.locked && '（已锁定）'}<div className="dsh-git-muted" style={{ fontFamily: 'monospace', fontSize: 12 }}>{worktree.path}</div></div>
+        {!worktree.isCurrent && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting || worktree.locked} onClick={() => setPendingDelete(worktree.path)}>{deleting === worktree.path ? '删除中…' : '删除'}</button>}
+      </div>)}
+      {pendingDelete && <div role="group" aria-label="确认删除 Worktree">
+        <p>确定删除 {pendingDelete}？有未提交更改或锁定的工作树不会强制删除。</p>
+        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting} onClick={() => setPendingDelete(null)}>取消</button>
+        <button type="button" className="dsh-git-btn dsh-git-btn-primary" disabled={!!deleting} onClick={() => handleDelete(pendingDelete)}>确认删除</button>
+      </div>}
+    </div>
+    <div className="dsh-git-modal-footer"><button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!deleting} onClick={onClose}>完成</button></div>
+  </DialogShell>
 }

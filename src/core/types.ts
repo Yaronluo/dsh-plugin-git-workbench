@@ -3,6 +3,9 @@ export interface RepoStatus {
   root: string
   branch: string
   head: string
+  upstream?: string
+  /** Stable content fingerprint for polling/SSE; changes even when dirty counts do not. */
+  revision?: string
   dirtyFiles: number
   untrackedFiles: number
   conflicts: number
@@ -64,6 +67,7 @@ export interface WorktreeItem {
   head: string
   isCurrent: boolean
   locked?: boolean
+  lockedReason?: string
 }
 
 export interface GitGraphCommit {

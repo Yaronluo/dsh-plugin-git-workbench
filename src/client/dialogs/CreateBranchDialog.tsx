@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { IconClose } from '../icons.js'
 import { gitApi } from '../api.js'
+import { DialogShell } from './DialogShell.js'
 
 export interface CreateBranchDialogProps {
   path: string
@@ -17,7 +18,7 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || submitting) return
 
     setSubmitting(true)
     setError(null)
@@ -38,11 +39,10 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
   }
 
   return (
-    <div className="dsh-git-modal-overlay" onClick={onClose}>
-      <div className="dsh-git-modal-card" onClick={e => e.stopPropagation()}>
+    <DialogShell title="创建并检出新分支" busy={submitting} onClose={onClose}>
         <div className="dsh-git-modal-header">
           <span>创建并检出新分支</span>
-          <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4 }}>
+          <button type="button" aria-label="关闭" className="dsh-git-icon-btn" disabled={submitting} onClick={onClose}>
             <IconClose size={16} />
           </button>
         </div>
@@ -50,9 +50,11 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
         <form onSubmit={handleSubmit}>
           <div className="dsh-git-modal-body">
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>新分支名称</label>
+              <label htmlFor="dsh-git-branch-name" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>新分支名称</label>
               <input
                 className="dsh-git-input"
+                id="dsh-git-branch-name"
+                disabled={submitting}
                 placeholder="例如：feature/awesome-ui"
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -61,9 +63,11 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>基于分支 / Commit (可选)</label>
+              <label htmlFor="dsh-git-branch-base" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>基于分支 / Commit (可选)</label>
               <input
                 className="dsh-git-input"
+                id="dsh-git-branch-base"
+                disabled={submitting}
                 placeholder="默认为当前分支 HEAD"
                 value={base}
                 onChange={e => setBase(e.target.value)}
@@ -71,14 +75,14 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
             </div>
 
             {error && (
-              <div style={{ color: '#dc2626', fontSize: 12.5, background: '#fef2f2', padding: '6px 10px', borderRadius: 6 }}>
+              <div role="alert" className="dsh-git-error" style={{ fontSize: 12.5, padding: '6px 10px', borderRadius: 6 }}>
                 {error}
               </div>
             )}
           </div>
 
           <div className="dsh-git-modal-footer">
-            <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={onClose}>
+            <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={submitting} onClick={onClose}>
               取消
             </button>
             <button
@@ -90,7 +94,6 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </DialogShell>
   )
 }

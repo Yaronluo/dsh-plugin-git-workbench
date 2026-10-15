@@ -1,102 +1,80 @@
-import type {
-  BranchesView,
-  DiffView,
-  GitGraphCommit,
-  RepoStatus,
-  SwitchResult,
-  WorktreeItem,
-} from '../core/types.js'
+import type { BranchesView, DiffView, GitGraphCommit, RepoStatus, SwitchResult, WorktreeItem } from '../core/types.js'
 
-function getEndpointUrl(endpoint: string): string {
-  const cleanEndpoint = endpoint.replace(/^\/+/, '')
-  // Document-relative to work across sub-paths and electron custom schemes
-  return `dsh-git/${cleanEndpoint}`
+export function getEndpointUrl(endpoint: string): string {
+  return `/dsh-git/${endpoint.replace(/^\/+/, '')}`
 }
 
-async function postJson<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
-  const url = getEndpointUrl(endpoint)
-  let res: Response
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-  } catch (err: any) {
-    // Fallback to root-relative if document-relative failed
-    res = await fetch(`/${getEndpointUrl(endpoint)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-  }
+export function errorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message
+  return 'Git 请求失败'
+}
 
-  const json = await res.json()
-  if (!json.ok && json.error && !json.code) {
-    throw new Error(json.error)
+async function postJson<T>(endpoint: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+  // Never retry mutations: a lost response does not mean Git did not execute them.
+  const res = await fetch(getEndpointUrl(endpoint), {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body), signal,
+  })
+  let json: any
+  try { json = await res.json() } catch {
+    throw new Error(`HTTP ${res.status}: ${res.statusText || '服务器返回了无效响应'}`)
   }
+  if (!res.ok || json?.ok === false) {
+    const error = new Error(json?.error ? errorMessage(json.error) : `HTTP ${res.status}: ${res.statusText}`)
+    if (json?.error?.code) Object.assign(error, { code: json.error.code })
+    throw error
+  }
+  if (json === null || typeof json !== 'object') throw new Error('Git 服务器返回了无效响应')
   return json.value !== undefined ? json.value : json
 }
 
 export const gitApi = {
-  async getStatus(path: string): Promise<RepoStatus> {
-    return postJson<RepoStatus>('status', { path })
+  getStatus(path: string, signal?: AbortSignal): Promise<RepoStatus> {
+    return postJson('status', { path }, signal)
   },
-
-  async getBranches(path: string): Promise<BranchesView> {
-    return postJson<BranchesView>('branches', { path })
+  getBranches(path: string, signal?: AbortSignal): Promise<BranchesView> {
+    return postJson('branches', { path }, signal)
   },
-
-  async switchBranch(path: string, branch: string): Promise<SwitchResult> {
-    return postJson<SwitchResult>('switch', { path, branch })
+  switchBranch(path: string, branch: string): Promise<SwitchResult> {
+    return postJson('switch', { path, branch })
   },
-
-  async createBranch(path: string, name: string, base?: string): Promise<SwitchResult> {
-    return postJson<SwitchResult>('create-branch', { path, name, base })
+  createBranch(path: string, name: string, base?: string): Promise<SwitchResult> {
+    return postJson('create-branch', { path, name, base })
   },
-
-  async getDiff(path: string, base?: string, target?: string): Promise<DiffView> {
-    return postJson<DiffView>('diff', { path, base, target })
+  getDiff(path: string, base?: string, target?: string, signal?: AbortSignal): Promise<DiffView> {
+    return postJson('diff', { path, base, target }, signal)
   },
-
-  async getWorktrees(path: string): Promise<WorktreeItem[]> {
-    return postJson<WorktreeItem[]>('worktrees', { path })
+  getWorktrees(path: string, signal?: AbortSignal): Promise<WorktreeItem[]> {
+    return postJson('worktrees', { path }, signal)
   },
-
-  async createWorktree(path: string, name: string, base?: string): Promise<{ ok: boolean; path?: string; error?: string }> {
+  createWorktree(path: string, name: string, base?: string): Promise<{ ok: boolean; path?: string; error?: string }> {
     return postJson('create-worktree', { path, name, base })
   },
-
-  async removeWorktree(path: string, worktreePath: string): Promise<{ ok: boolean; error?: string }> {
+  removeWorktree(path: string, worktreePath: string): Promise<{ ok: boolean; error?: string }> {
     return postJson('remove-worktree', { path, worktreePath })
   },
-
-  async getLog(path: string, limit: number = 50): Promise<GitGraphCommit[]> {
-    return postJson<GitGraphCommit[]>('log', { path, limit })
+  getLog(path: string, limit = 50, signal?: AbortSignal): Promise<GitGraphCommit[]> {
+    return postJson('log', { path, limit }, signal)
   },
-
-  subscribeEvents(path: string, onStatus: (status: RepoStatus) => void): () => void {
+  subscribeEvents(path: string, onStatus: (status: RepoStatus) => void, onError?: (error: Error) => void): () => void {
     if (typeof EventSource === 'undefined') return () => {}
-
-    const url = `${getEndpointUrl('events')}?path=${encodeURIComponent(path)}`
     let source: EventSource
     try {
-      source = new EventSource(url)
-    } catch {
-      source = new EventSource(`/${url}`)
+      source = new EventSource(`${getEndpointUrl('events')}?path=${encodeURIComponent(path)}`)
+    } catch (error) {
+      onError?.(new Error(errorMessage(error)))
+      return () => {}
     }
-
-    source.addEventListener('status', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data)
-        onStatus(data)
-      } catch {
-        // ignore parse error
-      }
+    source.addEventListener('status', (event: MessageEvent) => {
+      try { onStatus(JSON.parse(event.data)) } catch (error) { onError?.(new Error(errorMessage(error))) }
     })
-
-    return () => {
-      source.close()
-    }
+    source.addEventListener('status-error', (event: MessageEvent) => {
+      try { onError?.(new Error(errorMessage(JSON.parse(event.data).error))) }
+      catch { onError?.(new Error('Git 状态更新失败')) }
+    })
+    source.onerror = () => onError?.(new Error('Git 实时连接中断，正在重连'))
+    return () => source.close()
   },
 }
