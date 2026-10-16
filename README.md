@@ -97,9 +97,17 @@ AI 编程不止是生成代码，还需要审查差异、挑选提交、切换�
 - 本机安装 Git，并确保 `git` 在 DSH 进程的 `PATH` 中可用。
 - 从源码构建 / 运行测试：建议 **Node.js 24.2+**、**pnpm 11**。
 
-### 预构建安装（推荐）
+### npm 安装（推荐）
 
-GitHub Release 提供已经构建的安装包，无需在本地编译。当前 npm 发布尚未完成，请使用以下 Release 地址，而不是安装 npm 上他人的同名包 `dsh-plugin-git`：
+npm 包名是 **`dsh-plugin-git-workbench`**，已包含构建产物，无需在本地编译。注意：npm 上的 `dsh-plugin-git` 是其他作者的包，并非本项目。
+
+```powershell
+dsh plugin --profile desktop add dsh-plugin-git-workbench
+```
+
+### GitHub Release 安装
+
+也可直接安装 GitHub Release 提供的预构建包：
 
 ```powershell
 dsh plugin --profile desktop add https://github.com/Yaronluo/dsh-plugin-git/releases/latest/download/dsh-plugin-git-workbench.tgz
