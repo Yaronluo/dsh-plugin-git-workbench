@@ -2,3 +2,16 @@ node_modules/
 .pnpm-store/
 dist/
 *.log
+
+# Local credentials and editor / OS files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+coverage/
+*.tsbuildinfo

@@ -1,156 +1,168 @@
-# dsh-plugin-git
+<div align="center">
 
-DeepSeek Harness (DSH) 官方 Web GUI 与桌面端 Git 增强插件。
+# DSH Git Workbench
 
-## ✨ 特性
+**把 Git 工作流带进 DeepSeek Harness。**
 
-- **自动识别 Git 仓库**：
-  - 打开项目时自动探测是否为 Git 仓库；
-  - 非 Git 仓库时自动隐藏输入框顶部胶囊，不侵占界面空间；变更面板显示初始化引导；
-  - Git 仓库激活完整功能体系。
-- **【图 1】会话输入框顶部：分支切换胶囊与下拉面板**：
-  - 显示当前分支名（如 `main`）与分支图标；
-  - 展开浮层支持搜索过滤本地与远程分支；
-  - 动态展示当前未提交的变更文件数量（如 `未提交的更改: 4 个文件`）；
-  - 点击分支安全检出（带冲突守卫）；
-  - 底部快捷操作：`创建并检出新分支...`、`Git 图谱`、`在 worktree 中开始新会话...`、`管理 worktree...`。
-- **整页 Git 工作台：在「对话 / 轨迹 / 上下文 / 编队」同一排增加 `Git` 标签**：
-  - 工作台占满主内容区，保留左侧工作区导航；工作台本身不依赖侧边栏插件，AI 草稿动作使用右侧对话；
-  - 顶部 `Git` 页签与分支胶囊快捷操作进入当前会话的同一整页；移除会话头部重复的「Git 工作台」按钮；
-  - 内部 tab 切换变更 / 提交记录 / 储藏 / 工作树，右侧具名按钮进入创建分支 / 创建工作树表单（内联渲染，无遮罩）；
-  - 整页有独立纵向滚动区域，宽屏左侧文件列表、右侧大幅 Diff，两栏各自滚动；下方是提交编辑区与操作区，窄屏自动上下布局；
-  - 文件标题栏保留主操作，历史、复制、AI 解释等收进「更多操作」；储藏与工作树使用统一标题、操作栏和内容卡片，不再平铺弹窗关闭/完成按钮；
-  - 通过页签直接切换对话/Git，不再显示「返回」按钮；提交详情通过「提交」页签回到列表。空白会话单独保留「对话 / Git」页签，避免无路退出；文件选择、比较范围、草稿和滚动位置按会话与仓库隔离保留；
-  - 对比基线切换下拉框（如 `main → origin/main`、`工作区 vs HEAD`）；
-  - 全仓变动行数统计徽标（`+792 -31` 增删着色）；
-  - 变更文件列表树，展示单文件增删行数字数（如 `+226 -0`）；
-  - 内联代码差异对比器，具备行号、增绿删红、差异块上下文与代码对比；
-  - 差异标题栏右侧「在编辑器中打开」：用本机编辑器打开当前文件（自动探测 `code` / `cursor` / `code-insiders` / `windsurf` / `zed` / `subl`，可用环境变量 `DSH_GIT_EDITOR` 指定；都没有时交给系统默认应用，优先使用 DSH 自身的打开能力）。只允许打开仓库内、且不含 shell 元字符的路径；
-  - 加载、空状态与错误状态统一为带骨架屏的组件，不再是一行裸文本。
+分支切换 · 变更审查 · 提交记录 · 储藏管理 · 多工作树 · AI 草稿协作
 
-### 变更页（全部 / 未暂存 / 已暂存 三个范围）
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Yaronluo/dsh-plugin-git/actions/workflows/ci.yml/badge.svg)](https://github.com/Yaronluo/dsh-plugin-git/actions/workflows/ci.yml)
+[![DSH Plugin](https://img.shields.io/badge/DeepSeek_Harness-Plugin-5865f2)](#安装)
 
-- **提交框**：提交信息、`修正上次提交`（amend）、`签名`（Signed-off-by）、`全部改动`（`-a`）；暂存区为空或有未解决冲突时按钮禁用并说明原因；`撤销提交`（`reset --soft HEAD~1`，改动退回暂存区）；`Ctrl/Cmd+Enter` 直接提交。
-- **分组文件列表**：冲突 / 已暂存 / 未暂存 / 未跟踪四组，逐文件动作 `暂存`、`取消暂存`、`撤销更改`、`删除未跟踪`、`加入 .gitignore`（含 `.git/info/exclude` 选项）、`在文件管理器中显示`、`复制路径`。
-- **hunk 级暂存**：每个差异块上有 `暂存此块` / `取消暂存此块`，底层是 `git apply --cached [--reverse]`，「工作区 vs 索引」的补丁可以逐块进/出暂存区。
-- **差异工具条**：词级高亮（token LCS 对齐增删行）、忽略空白、并排视图、上下文行数（`-U`）、上/下一处差异、复制补丁/路径、内联图片预览（`GET /dsh-git/blob`，仅仓库内且有大小上限）。
-- **冲突处理**：未解决冲突单独分组，可 `用当前版本` / `用传入版本` 一键解决并暂存，也可直接编辑工作区文件。
-- **进行中操作横幅**：识别 merge / rebase / cherry-pick / revert / am，提供 `继续` / `中止` / `跳过`（不可用的动作不显示；继续前若有未解决冲突会被拒绝）。
+在对话里写代码，在同一个工作区里看懂、整理并提交改动。
 
-### 提交记录页
+[快速开始](#安装) · [界面预览](#界面预览) · [参与贡献](CONTRIBUTING.md) · [反馈问题](https://github.com/Yaronluo/dsh-plugin-git/issues)
 
-- **真 lane 图谱**：按父提交列布局（`src/client/graph.ts` 的纯函数 `computeGraph`），不再是平铺列表。
-- **提交详情**：点击任意提交查看提交信息、作者/提交者、父提交、引用与逐文件 diff；可复制 hash、在编辑器中打开、签出该提交新建分支、打标签。
-- **引用日志（reflog）**：列出最近的 HEAD 移动，可 `软重置到此处` 来撤销上一次操作。
+</div>
 
-### 储藏页 / 工作树页
+> 面向 DeepSeek Harness（DSH）Web GUI / Desktop 的社区开源插件，并非 DeepSeek 官方项目。插件依赖 DSH 宿主接口，不能作为独立网页运行；不同宿主版本的兼容性请以实际测试为准。
 
-- **储藏**：列表 + 补丁预览；`储藏当前改动`（可含未跟踪、可保留暂存区）、`应用`、`弹出`、`删除`（二次确认）。
-- **工作树**：每棵树的状态徽标与脏文件数、`lock`（含原因）/ `unlock`、`prune`（先预演再确认）、删除需要显式确认（脏或锁定的树不会强制删除），并可 `在当前工作树中打开会话`。
+## 为什么做这个插件？
 
-### 分支胶囊（图 1）
+AI 编程不止是生成代码，还需要审查差异、挑选提交、切换分支，以及用独立工作树并行探索。DSH Git Workbench 把这些操作放回当前会话，让你少切窗口，也更清楚每一次 Git 操作会影响什么。
 
-- 显示 `ahead` / `behind` / 储藏数量；底部新增 `拉取` / `推送` / `获取`（fetch 支持 `--prune`；push 支持 `-u` 推送到新分支与 `--force-with-lease`；凭据缺失时给出明确提示而不是静默失败）。
+## 界面预览
 
-### 单文件检查
+以下五张图片均来自实际项目界面；截图中的仓库路径与提交记录仅作演示，外观可能随 DSH 版本和主题变化。
 
-- 差异标题栏 `历史`：单文件提交历史 + `blame` 逐行责任（按提交分组，展示作者与时间）。
+### 分支入口：从输入框直接进入 Git 工作流
 
-### 与 agent 协作
+搜索与切换分支，快速获取、拉取、推送，或创建工作树开启新会话。
 
-- **8 个 Git 工具**注册给会话内 agent 直接调用：`git_status`、`git_diff`、`git_log`、`git_stage`、`git_unstage`、`git_commit`、`git_stash`、`git_branch`（都要求显式 `cwd`；只读工具出错即抛错，写工具返回 `{ok, error}`）。
-- **审批门禁**：`tools/pre-execute` 钩子对 `amend` 提交与 `stash drop` 强制询问，其余放行；钩子内部异常一律 `next()`（不吞掉、不误拒）。
-- **AI 动作**：`AI 写信息`、`AI 审查改动`、`注入 Git 上下文`、`解释这个文件` 四个按钮直接打开当前会话的**右侧对话并填入提示词草稿**，不会自动发送、不会自动复制，也不会调用 LLM。已有草稿保留并追加，用户编辑确认后再发送。`AI 写信息`单独读取真实暂存区补丁；审查使用当前比较范围。侧边栏插件不存在、未提供侧边对话或功能被停用时，自动在同一项目目录新建普通对话并填入草稿。侧边对话已开始打开后若失败，则明确报错，不重复创建普通对话；所有路径均需用户手动发送。
+![输入框上方的分支胶囊与快捷操作菜单](docs/screenshots/branch-menu.png)
 
-### 其它修复与探测结论
+### 变更工作台：专注当前仓库
 
-- `status.revision` 不再每 3 秒重读所有脏文件：改为按 `lstat` 签名（mode/size/mtimeNs/ctimeNs/ino）缓存内容摘要，签名不变就跳过全文哈希，同时保持「同尺寸同 mtime 的编辑仍会改变 revision」。
-- 命令面板探测结论：这一版 DSH 没有通用命令面板 API，`commands` / `shortcuts` 只是 host 侧注册面，且命令上下文拿不到仓库 `cwd`，因此 Git 能力以 agent 工具 + 面板内按键（`Esc` 关闭浮层、`Ctrl/Cmd+Enter` 提交）交付。
+与「对话 / 轨迹 / 上下文 / 编队」同排的 Git 页签；工作区干净时清晰呈现空状态，有改动时显示文件列表与差异。
 
----
+![Git 工作台变更页与干净工作区状态](docs/screenshots/changes.png)
 
-## 🛠️ 安装与调试
+<details open>
+<summary><strong>提交记录：回看项目演进</strong></summary>
 
-### 1. 本地 Link 安装至 DSH Desktop Profile
+浏览提交图谱、作者与引用，点开提交查看逐文件差异；也可切换到引用日志。
 
-在终端中执行：
+![提交记录列表与分支引用](docs/screenshots/history.png)
+
+</details>
+
+<details>
+<summary><strong>储藏管理：暂存思路，稍后继续</strong></summary>
+
+保存未提交改动，查看补丁，再选择应用、弹出或删除。
+
+![储藏管理页及空状态](docs/screenshots/stash.png)
+
+</details>
+
+<details>
+<summary><strong>工作树管理：并行开发，各自独立</strong></summary>
+
+查看工作树状态、打开对应会话、在文件管理器中显示目录，以及锁定或安全移除工作树。
+
+![工作树列表与管理操作](docs/screenshots/worktrees.png)
+
+</details>
+
+## 核心能力
+
+| 场景 | 能力 |
+| --- | --- |
+| 分支与同步 | 自动识别 Git 仓库，搜索和切换分支，创建分支，fetch / pull / push，上游与 ahead / behind 信息 |
+| 变更审查 | 按冲突、已暂存、未暂存、未跟踪分组；行号、词级高亮、并排差异、上下文与忽略空白 |
+| 精细提交 | 文件或 hunk 级暂存 / 取消暂存，提交草稿，amend、Signed-off-by、撤销上次提交 |
+| 历史追溯 | 提交图谱、提交详情、逐文件 diff、reflog、文件历史与 blame |
+| 储藏与工作树 | 储藏补丁预览与恢复；工作树创建、打开会话、锁定 / 解锁、清理预演 |
+| 冲突处理 | 冲突分组、选用当前 / 传入版本，以及进行中 Git 操作的继续 / 中止 / 跳过 |
+| 本机工具 | 在编辑器或文件管理器中打开文件、复制路径 / 补丁、仓库内图片预览 |
+| 会话协作 | 按会话与仓库保留选择、草稿和滚动位置；提供 8 个 agent Git 工具 |
+
+### AI 帮忙，但由你决定何时发送
+
+「AI 写信息」「AI 审查改动」「注入 Git 上下文」「解释这个文件」只准备提示词草稿：
+
+- 优先打开当前会话的右侧对话并追加草稿，不覆盖已有内容。
+- 缺少可用侧边对话时，在同一项目目录新建普通对话并填入草稿。
+- **不自动发送、不自动提交、不自动调用模型**；请先检查草稿再手动发送。
+- 编写提交信息读取暂存区补丁；审查改动使用当前比较范围。
+
+供 agent 使用的工具：`git_status`、`git_diff`、`git_log`、`git_stage`、`git_unstage`、`git_commit`、`git_stash`、`git_branch`。所有工具都需要明确的 `cwd`。
+
+## 安装
+
+### 环境要求
+
+- 已安装并能运行的 DSH Web GUI / Desktop。插件清单声明 `dsh >=0.2.0-rc.2`，但这不代表所有后续版本都经过验证。
+- 本机安装 Git，并确保 `git` 在 DSH 进程的 `PATH` 中可用。
+- 从源码构建 / 运行测试：建议 **Node.js 24.2+**、**pnpm 11**。
+
+### 从源码安装（推荐）
+
+当前提供 GitHub 源码安装方式，**不假设已经发布到 npm**。
 
 ```bash
-dsh plugin --profile desktop add link:D:\dsh-plugin\git-plugin
+git clone https://github.com/Yaronluo/dsh-plugin-git.git
+cd dsh-plugin-git
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm build
 ```
 
-或者在 DSH Desktop profile 的 `cordis.patch.yml` 中添加：
+然后将构建后的项目以本地 link 插件加入 DSH Desktop profile。将下面路径替换成你本机克隆目录的绝对路径：
 
-```yaml
-- insert:
-    - id: git-plugin
-      name: dsh-plugin-git
+```powershell
+dsh plugin --profile desktop add "link:D:\path\to\dsh-plugin-git"
 ```
 
-### 2. 本地开发与代码构建
+其它 profile 请将 `desktop` 替换为实际名称。安装后按 DSH 提示重启应用，再打开 Git 仓库中的会话，查看 Git 页签与输入框上方的分支入口。
+
+> Host 代码变更需要重新加载插件或完整重启 DSH，单纯刷新网页不会替换正在运行的 Host 服务。客户端修改后也建议构建并刷新；不要假设所有安装方式都支持热更新。
+
+### 外部编辑器
+
+默认探测 `code`、`cursor`、`code-insiders`、`windsurf`、`zed`、`subl`；也可通过启动 DSH 前设置的 `DSH_GIT_EDITOR` 指定编辑器可执行文件。路径含空格时请遵循所在 shell 的引用规则。插件优先使用宿主打开能力，必要时回退到本机应用。
+
+## 开发与测试
 
 ```bash
-cd D:\dsh-plugin\git-plugin
-pnpm run build
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-构建产物位于 `lib/` 目录下（`lib/index.js` 为 Host 端服务，`lib/client.js` 为浏览器端 React Bundle）。
+测试使用 Node 内置测试运行器。Git 写操作测试在临时仓库中运行，不应操作你的真实工作仓库。依赖已安装 DSH / Chromium 的集成测试在环境缺失时会明确跳过；自动测试不等同于当前登录窗口已完成人工验收。
 
----
+更多测试背景、环境变量与历史回归记录见 [TESTING.md](TESTING.md)。
 
-## 📁 目录结构
+### 项目结构
 
+```text
+src/
+├── index.ts       # Host 插件入口
+├── core/          # Git 命令、解析与共享类型
+├── host/          # Git 服务、HTTP/SSE、agent 工具与本机打开能力
+└── client/        # React 工作台、分支胶囊、diff 与会话集成
+scripts/           # Host / Client 构建脚本
+tests/             # 单元、真实 Git 与可选宿主 / 浏览器回归
+docs/screenshots/  # README 界面截图
+lib/               # 已构建的插件产物
 ```
-D:\dsh-plugin\git-plugin
-├── package.json
-├── cordis.patch.yml
-├── tsconfig.json
-├── scripts/
-│   └── build.mjs
-├── src/
-│   ├── index.ts                # Host 端入口：注册 /dsh-git 路由、Git 服务与 agent 工具
-│   ├── core/
-│   │   ├── types.ts            # 数据类型定义
-│   │   ├── changes.ts          # 状态条目 → 变更列表 / 冲突内容解析（纯函数）
-│   │   └── git-command.ts      # Git 命令生成与解析工具（status/diff/log/stash/blame…）
-│   ├── host/
-│   │   ├── git-runner.ts       # 平台原生 git.exe 子进程调度
-│   │   ├── git-service.ts      # 仓库检测、状态解析、分支与 Diff 核心服务
-│   │   ├── editor-launcher.ts  # 外部编辑器探测与安全启动（含在文件管理器中显示）
-│   │   ├── routes.ts           # /dsh-git/* HTTP 接口、blob 图片与 SSE 事件推送
-│   │   ├── tool-defs.ts        # defineTool 等价实现（JSON Schema 转换，无第三方依赖）
-│   │   └── agent-tools.ts      # 8 个 Git 工具 + tools/pre-execute 审批门禁
-│   └── client/
-│       ├── index.tsx           # Client 端入口：挂载会话 Git 标签与分支胶囊
-│       ├── conversation-registration.ts # 原生 conversation.view / 导航桥 / 空白会话接入
-│       ├── api.ts              # 前端 API 请求封装
-│       ├── agent-bridge.ts     # AI 提示词构建与「发给会话 / 复制到剪贴板」投递
-│       ├── graph.ts            # 提交 lane 图谱布局（纯函数）
-│       ├── icons.tsx           # 原生 SVG 图标组件
-│       ├── styles.ts           # UI 样式与主题变量
-│       ├── loading-state.tsx   # 统一加载骨架屏组件（页面 / 提交记录 / 工作树共用）
-│       ├── hooks/
-│       │   └── use-git-status.ts # 仓库自动探测与状态监听 Hook
-│       ├── panels/
-│       │   ├── navigation.ts       # 单一 Tab 内的页面定义与当前页状态
-│       │   ├── GitWorkbenchPage.tsx # 整页外壳、返回对话与原生导航桥
-│       │   ├── GitSidebarPanel.tsx # 复用内容组件：内部页面 tab 条 + 内容区（不再挂侧栏）
-│       │   └── panel-context.ts    # 标记“在面板中渲染”，表单不再使用遮罩
-│       ├── chips/
-│       │   ├── BranchChip.tsx    # 图 1：分支胶囊组件
-│       │   └── BranchPopover.tsx # 图 1：分支切换下拉弹层
-│       ├── dialogs/
-│       │   ├── CreateBranchDialog.tsx  # 新建分支弹窗
-│       │   ├── GitGraphDialog.tsx      # 提交记录：lane 图谱 + reflog 标签页
-│       │   ├── CommitDetailDialog.tsx  # 单条提交详情与逐文件 diff
-│       │   ├── ReflogPanel.tsx         # 引用日志与软重置撤销
-│       │   ├── StashPanel.tsx          # 储藏管理页
-│       │   ├── WorktreeDialogs.tsx     # Worktree 创建 / 管理（lock、prune）
-│       │   ├── FileInspectDialog.tsx   # 单文件历史与 blame
-│       │   ├── blame-groups.ts         # blame 行按提交分组（纯函数）
-│       │   └── DialogShell.tsx         # 内联 / 模态容器
-│       └── diff/
-│           ├── ChangesTab.tsx    # 图 2：变更审查面板、提交框与代码差异对比器
-│           ├── change-sections.ts # 变更分组、索引摘要与提交前置校验（纯函数）
-│           └── patch.ts          # hunk 切分、补丁拼装、词级 diff 与并排配对（纯函数）
-```
+
+## 安全与使用边界
+
+- 这是可以修改本地仓库的 Git 客户端，不是只读预览器。提交、恢复文件、软重置、储藏删除等操作前，请确认目标仓库与影响范围，重要工作先备份。
+- 包含引用 / 路径校验、字面路径处理、冲突守卫与危险操作确认；这些保护不能替代代码审查，也不构成安全保证。
+- AI 草稿可能包含代码、路径和差异。发送前请移除密钥和不应交给所选模型服务的内容。
+- 凭据由本机 Git 配置及凭据管理器处理，不要把 token 放入仓库或问题反馈中。
+- 漏洞报告方式见 [SECURITY.md](SECURITY.md)。
+
+## 参与贡献
+
+欢迎提交问题、兼容性反馈、文档改进和 Pull Request。请提供 DSH / 系统 / Git 版本及可复现步骤；涉及代码或截图时先脱敏。开始前请阅读 [贡献指南](CONTRIBUTING.md)。
+
+## 许可证
+
+本项目代码采用 [MIT License](LICENSE)，Copyright © 2026 Yaronluo。
+
+截图用于展示插件在 DSH 中的集成效果；DeepSeek、DSH 及相关标识归各自权利人所有，代码许可证不授予第三方品牌或商标权。
