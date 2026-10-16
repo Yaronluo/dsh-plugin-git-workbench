@@ -1,10 +1,13 @@
 import { build } from 'esbuild'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const rootDir = fileURLToPath(new URL('../', import.meta.url))
 const libDir = resolve(rootDir, 'lib')
+// The client Loader resolves modules by package name, not by our UI IDs.
+const { name: packageName } = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf8'))
+if (typeof packageName !== 'string' || !packageName) throw new Error('package.json must declare a package name')
 
 mkdirSync(libDir, { recursive: true })
 
@@ -45,7 +48,7 @@ await build({
   ],
   banner: {
     js: `window.__ModuleLoader__.load({
-  id: "dsh-plugin-git",
+  id: ${JSON.stringify(packageName)},
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;

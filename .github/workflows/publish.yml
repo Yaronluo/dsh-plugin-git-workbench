@@ -1,18 +1,20 @@
 name: Publish
 
 # Publishes the package to npm, which is what lets storefronts show a download
-# count and install without a build step. It needs an npm automation token in
-# the NPM_TOKEN repository secret — a granular access token with read/write on
-# this package, which also bypasses interactive 2FA. Without the secret the job
-# reports a warning and exits green, so releases keep working either way.
+# count and install without a build step. It needs a granular npm token in
+# the NPM_TOKEN repository secret, with package publish permissions and the
+# appropriate 2FA policy. Without the secret no package is published.
+# A release created with GITHUB_TOKEN does not trigger release-event workflows;
+# workflow_run therefore follows the successful Release workflow instead.
 #
 # The registry is pinned in package.json (`publishConfig`) on purpose: a
 # developer ~/.npmrc may point at a read-only mirror such as
 # registry.npmmirror.com, where `npm publish` cannot succeed.
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -21,9 +23,15 @@ permissions:
 jobs:
   publish:
     name: Publish to npm
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: pnpm/action-setup@v4
         with:
           version: 11.8.0
@@ -41,7 +49,8 @@ jobs:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::warning::NPM_TOKEN is not set - skipping npm publish"
+            echo "::warning::NPM_TOKEN is not set - no npm package was published"
+            echo "npm publication was skipped: configure the NPM_TOKEN repository secret or publish locally after npm login." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           name="$(node -p "require('./package.json').name")"
