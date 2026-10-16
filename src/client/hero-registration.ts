@@ -1,7 +1,7 @@
 const HERO_SLOT = 'conversation.hero.agentPreset'
 
 /** Deliberately decorate the existing preset seat, retaining its original UI and injections. */
-export function installHeroControls(slots: any, decorate: (component: any) => any): () => void {
+export function installHeroControls(slots: any, decorate: (component: any) => any, children?: Record<string, { kind: string; scope: string }>): () => void {
   let original: any
   let unregister: (() => void) | undefined
   const ownComponents = new Set<any>()
@@ -31,6 +31,7 @@ export function installHeroControls(slots: any, decorate: (component: any) => an
       inject: next.inject,
       locale: next.locale,
       store: next.store,
+      ...(children ? { children } : {}),
     }, component)
   }
   const unsubscribe = slots.subscribe(HERO_SLOT, sync)

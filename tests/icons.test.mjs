@@ -17,6 +17,10 @@ const names = [
   'IconFile', 'IconRefresh', 'IconClose', 'IconGraph', 'IconWorktree',
   'IconBranchPlus', 'IconHistory', 'IconFolderTree', 'IconChevronRight',
   'IconExternalLink',
+  'IconChevronUp', 'IconPlus', 'IconMinus', 'IconUndo', 'IconCommit',
+  'IconStash', 'IconTag', 'IconCopy', 'IconTrash', 'IconWarning',
+  'IconArrowUp', 'IconArrowDown', 'IconPush', 'IconPull', 'IconCloudRefresh',
+  'IconColumns', 'IconImage', 'IconInfo', 'IconTextCursor', 'IconSparkle',
 ]
 
 test('all existing and new icons share a rounded, currentColor 24px coordinate system', () => {

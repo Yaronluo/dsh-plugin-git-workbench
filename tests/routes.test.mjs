@@ -54,6 +54,23 @@ test('routes reject missing cwd and malformed field types without calling Git', 
   assert.equal(calls, 0)
 })
 
+test('mutation routes require an explicit conflict side and operation step', async t => {
+  const calls = []
+  const runtime = setup({
+    resolveConflict: async (...args) => { calls.push(args); return { ok: true } },
+    operationStep: async (...args) => { calls.push(args); return { ok: true } },
+  })
+  t.after(runtime.dispose)
+  for (const value of [undefined, null, '', 'invalid', true]) {
+    assert.equal((await request(runtime.handler, '/dsh-git/conflict-resolve', { path: 'R', file: 'a', side: value })).status, 400)
+    assert.equal((await request(runtime.handler, '/dsh-git/operation-step', { path: 'R', step: value })).status, 400)
+  }
+  assert.deepEqual(calls, [])
+  assert.equal((await request(runtime.handler, '/dsh-git/conflict-resolve', { path: 'R', file: 'a', side: 'ours' })).status, 200)
+  assert.equal((await request(runtime.handler, '/dsh-git/operation-step', { path: 'R', step: 'abort' })).status, 200)
+  assert.deepEqual(calls, [['R', 'a', 'ours'], ['R', 'abort']])
+})
+
 test('routes preserve meaningful Git failures', async t => {
   const runtime = setup({ diff: async () => { throw new Error('Unknown upstream ref') } })
   t.after(runtime.dispose)
@@ -124,6 +141,48 @@ test('the editor route forwards a refusal instead of inventing success', async t
   const res = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'gone.ts' })
   assert.equal(res.status, 200)
   assert.deepEqual(JSON.parse(res.chunks.join('')), { ok: false, error: '该文件已不存在，可能已被删除。' })
+})
+
+test('the blob route streams image bytes and refuses everything else', async t => {
+  const seen = []
+  const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+  const runtime = setup({
+    readBlob: async (path, file) => {
+      seen.push([path, file])
+      if (file === 'ok.png') return { ok: true, bytes, type: 'image/png' }
+      return { ok: false, error: '这个路径不是一个文件' }
+    },
+  })
+  t.after(runtime.dispose)
+
+  const ok = await request(runtime.handler, '/dsh-git/blob?path=R&file=ok.png', null, 'GET')
+  assert.equal(ok.status, 200)
+  assert.equal(ok.headers['Content-Type'], 'image/png')
+  assert.deepEqual(Buffer.concat(ok.chunks), bytes)
+
+  const refused = await request(runtime.handler, '/dsh-git/blob?path=R&file=nope.png', null, 'GET')
+  assert.equal(refused.status, 404)
+  assert.equal(JSON.parse(refused.chunks.join('')).error, '这个路径不是一个文件')
+
+  // The URL must never be able to ask for a file without naming a repository.
+  assert.equal((await request(runtime.handler, '/dsh-git/blob?file=ok.png', null, 'GET')).status, 400)
+  assert.equal((await request(runtime.handler, '/dsh-git/blob?path=R&file=', null, 'GET')).status, 400)
+  assert.deepEqual(seen, [['R', 'ok.png'], ['R', 'nope.png']])
+  assert.equal((await request(runtime.handler, '/dsh-git/blob?path=R&file=ok.png', { path: 'R' })).status, 405)
+})
+
+test('repository SVG blobs cannot execute scripts with the GUI origin', async t => {
+  const bytes = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>')
+  const runtime = setup({ readBlob: async () => ({ ok: true, bytes, type: 'image/svg+xml' }) })
+  t.after(runtime.dispose)
+  const res = await request(runtime.handler, '/dsh-git/blob?path=R&file=untrusted.svg', null, 'GET')
+  assert.equal(res.status, 200)
+  assert.equal(res.headers['Content-Type'], 'image/svg+xml')
+  assert.equal(res.headers['X-Content-Type-Options'], 'nosniff')
+  assert.match(res.headers['Content-Security-Policy'], /(?:^|;\s*)sandbox(?:;|$)/)
+  assert.match(res.headers['Content-Security-Policy'], /default-src 'none'/)
+  assert.doesNotMatch(res.headers['Content-Security-Policy'], /allow-scripts|allow-same-origin/)
+  assert.deepEqual(Buffer.concat(res.chunks), bytes)
 })
 
 test('the client report route stores what the renderer reported and needs no repository', async t => {

@@ -3,9 +3,10 @@ import { ChangesTab } from '../diff/ChangesTab.js'
 import { GitGraphDialog } from '../dialogs/GitGraphDialog.js'
 import { CreateBranchDialog } from '../dialogs/CreateBranchDialog.js'
 import { CreateWorktreeDialog, WorktreeManagerDialog } from '../dialogs/WorktreeDialogs.js'
+import { StashPanel } from '../dialogs/StashPanel.js'
 import { GitPanelContext } from './panel-context.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
-import { IconBranchPlus, IconDiff, IconFolderTree, IconHistory } from '../icons.js'
+import { IconBranchPlus, IconDiff, IconFolderTree, IconHistory, IconStash } from '../icons.js'
 import { GitLoadingState } from '../loading-state.js'
 import { collectPanelDiagnostics, reportClientState } from '../diagnostics.js'
 import {
@@ -16,6 +17,7 @@ import {
 const VIEW_ICONS: Record<GitPanelView, (props: { size?: number }) => React.ReactElement> = {
   changes: IconDiff,
   history: IconHistory,
+  stashes: IconStash,
   worktrees: IconFolderTree,
   'create-branch': IconBranchPlus,
   'create-worktree': IconFolderTree,
@@ -67,12 +69,12 @@ function RepositoryForm({ view, cwd, branch, onFinish, onClose, onOpenWorktree }
   if (view === 'create-worktree') {
     // Land on the list that now contains the new worktree.
     return <CreateWorktreeDialog path={cwd} currentBranch={branch} onClose={() => onFinish('worktrees')}
-      onSuccess={() => onFinish('worktrees')} onOpenWorktree={onOpenWorktree} />
+      onSuccess={onOpenWorktree ? undefined : () => onFinish('worktrees')} onOpenWorktree={onOpenWorktree} />
   }
-  return <WorktreeManagerDialog path={cwd} onClose={onClose} />
+  return <WorktreeManagerDialog path={cwd} onClose={onClose} onOpenWorktree={onOpenWorktree} />
 }
 
-/** Content for the Session's native right sidebar. One tab hosts every Git page. */
+/** Reusable Git page navigation/content, hosted by the full-page conversation workbench. */
 export function GitSidebarPanel(props: any) {
   const cwd = props.tab?.path || props.scope?.repoRoot || props.scope?.cwd || props.cwd || ''
   const sessionId = props.scope?.sessionId || props.sessionId
@@ -113,7 +115,10 @@ export function GitSidebarPanel(props: any) {
     // 因此只有它们等在探测之后。
     const needsBranch = view === 'create-branch' || view === 'create-worktree'
     if (needsBranch && !status) return <GitLoadingState title="正在检测 Git 仓库" hint="分支信息即将显示" />
+    // 仓库探测失败、非仓库的处理必须优先于每个页面自己的加载态：否则会在“不是 Git 仓库”
+    // 的目录里显示一个永远转不完的加载画面。
     if (view === 'history') return <GitGraphDialog key={reloadKey} path={cwd} onClose={onClose} />
+    if (view === 'stashes') return <StashPanel key={reloadKey} path={cwd} />
     return <RepositoryForm view={view} cwd={cwd} branch={status?.branch ?? ''} onFinish={finish} onClose={onClose}
       onOpenWorktree={props.onOpenWorktree} />
   })()

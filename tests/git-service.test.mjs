@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, writeFile, rm, utimes } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, rm, utimes, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, isAbsolute, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -30,6 +30,30 @@ async function fixture(t, committed = true) {
   })
   return { root, base, service: new GitService(createGitRunner()) }
 }
+
+test('Git runner handles early stdin closure without an uncaught stream error', async () => {
+  const result = await createGitRunner().run(['--version'], process.cwd(), undefined, { stdin: 'x'.repeat(2_000_000) })
+  assert.equal(result.exitCode, 0)
+  assert.match(result.stdout, /git version/i)
+})
+
+test('blob preview rejects a tracked path that escapes through a symlinked parent', async t => {
+  const { root, base, service } = await fixture(t)
+  await mkdir(join(root, 'nested'))
+  await writeFile(join(root, 'nested', 'tracked.txt'), 'committed content\n')
+  git(root, 'add', 'nested/tracked.txt')
+  git(root, 'commit', '-m', 'nested file')
+
+  const outside = join(base, 'outside')
+  await mkdir(outside)
+  await writeFile(join(outside, 'tracked.txt'), 'outside secret\n')
+  await rm(join(root, 'nested'), { recursive: true, force: true })
+  await symlink(outside, join(root, 'nested'), process.platform === 'win32' ? 'junction' : 'dir')
+
+  const result = await service.readBlob(root, 'nested/tracked.txt')
+  assert.equal(result.ok, false)
+  assert.match(result.error, /仓库范围/)
+})
 
 test('failed branch switch cannot checkout and restore same-named tracked path', async t => {
   const { root, service } = await fixture(t)
@@ -127,6 +151,31 @@ test('unborn HEAD diff includes staged and recursive untracked UTF-8/binary/empt
   assert.equal((await service.status(root)).head, '')
 })
 
+test('untracked diff bounds large reads and counts a newline-only file consistently', async t => {
+  const { root, service } = await fixture(t)
+  await writeFile(join(root, 'newline-only.txt'), '\n')
+  await writeFile(join(root, 'large.txt'), Buffer.alloc(2_000_001, 0x61))
+
+  const diff = await service.diff(root)
+  const newline = diff.files.find(file => file.path === 'newline-only.txt')
+  const large = diff.files.find(file => file.path === 'large.txt')
+  assert.equal(newline.insertions, 1)
+  assert.equal(large.binary, true)
+  assert.equal(large.insertions, 0)
+  assert.ok(large.rawPatch.length < 100)
+
+  const changes = await service.changes(root)
+  const change = changes.entries.find(entry => entry.path === 'newline-only.txt')
+  assert.equal(change.insertions, 1)
+})
+
+test('diff skips untracked FIFOs rather than blocking while reading them', { skip: process.platform === 'win32' }, async t => {
+  const { root, service } = await fixture(t)
+  execFileSync('mkfifo', [join(root, 'blocking.fifo')])
+  const diff = await service.diff(root)
+  assert.equal(diff.files.some(file => file.path === 'blocking.fifo'), false)
+})
+
 test('real Git rename paths and numstat support Chinese spaces and tabs', async t => {
   const { root, service } = await fixture(t)
   const old = '中文 old name.txt', next = '中文 new name.txt'
@@ -141,6 +190,54 @@ test('real Git rename paths and numstat support Chinese spaces and tabs', async 
   assert.equal(file.status, 'renamed')
   assert.equal(file.insertions, 1)
   assert.equal(file.hunks[0].lines.at(-1).type, 'add')
+})
+
+test('diff path filter, scopes and whitespace/context switches narrow the payload exactly', async t => {
+  const { root, service } = await fixture(t)
+  await writeFile(join(root, 'one.txt'), 'base\n')
+  await writeFile(join(root, 'two.txt'), 'base\n')
+  git(root, 'add', '.'); git(root, 'commit', '-m', 'base')
+  await writeFile(join(root, 'one.txt'), 'base\nfirst change\n')
+  await writeFile(join(root, 'two.txt'), 'base\nsecond change\n')
+
+  const all = await service.diff(root)
+  assert.deepEqual(all.files.map(file => file.path).sort(), ['one.txt', 'two.txt'])
+
+  // A single-path request is what keeps a huge tree from travelling for one file.
+  const only = await service.diff(root, undefined, undefined, { paths: ['one.txt'], mode: 'unstaged' })
+  assert.deepEqual(only.files.map(file => file.path), ['one.txt'])
+  assert.equal(only.files[0].insertions, 1)
+  assert.equal(only.files[0].rawPatch.includes('two.txt'), false)
+
+  // The index boundary is exact: a staged file leaves the unstaged view.
+  git(root, 'add', 'one.txt')
+  const staged = await service.diff(root, undefined, undefined, { mode: 'staged' })
+  assert.deepEqual(staged.files.map(file => file.path), ['one.txt'])
+  const unstaged = await service.diff(root, undefined, undefined, { mode: 'unstaged' })
+  assert.deepEqual(unstaged.files.map(file => file.path), ['two.txt'])
+
+  // Context depth travels with the request: -U0 keeps no unchanged line around the change.
+  const twelve = Array.from({ length: 12 }, (_, index) => `line ${index + 1}\n`)
+  await writeFile(join(root, 'three.txt'), twelve.join(''))
+  git(root, 'add', 'three.txt'); git(root, 'commit', '-m', 'three')
+  twelve[5] = 'line 6 changed\n'
+  await writeFile(join(root, 'three.txt'), twelve.join(''))
+  const wide = await service.diff(root, undefined, undefined, { paths: ['three.txt'], mode: 'unstaged', context: 3 })
+  const narrow = await service.diff(root, undefined, undefined, { paths: ['three.txt'], mode: 'unstaged', context: 0 })
+  assert.equal(narrow.files[0].hunks[0].lines.filter(line => line.type === 'normal').length, 0)
+  assert.ok(narrow.files[0].hunks[0].lines.length < wide.files[0].hunks[0].lines.length)
+
+  // Whitespace-only edits disappear under -w and survive without it. This has to be an
+  // indent change of a committed line, otherwise the line is simply an addition and -w
+  // cannot drop it.
+  await writeFile(join(root, 'four.txt'), 'alpha\nbeta\n')
+  git(root, 'add', 'four.txt'); git(root, 'commit', '-m', 'four')
+  await writeFile(join(root, 'four.txt'), 'alpha\n    beta\n')
+  const spaced = await service.diff(root, undefined, undefined, { paths: ['four.txt'], mode: 'unstaged' })
+  assert.deepEqual(spaced.files.map(file => file.path), ['four.txt'])
+  assert.equal(spaced.files[0].insertions + spaced.files[0].deletions, 2)
+  const ignored = await service.diff(root, undefined, undefined, { paths: ['four.txt'], mode: 'unstaged', ignoreWhitespace: true })
+  assert.equal(ignored.files.reduce((count, file) => count + file.hunks.length, 0), 0)
 })
 
 test('diff errors surface instead of returning an empty successful view', async t => {
@@ -180,4 +277,62 @@ test('real git log preserves pipe in subject and author', async t => {
   assert.equal(commits.length, 2)
   assert.equal(commits[0].subject, 'second | commit')
   assert.equal(commits[0].author, 'Author | test')
+})
+
+test('stage treats a selected glob-looking filename literally', async t => {
+  const { root, service } = await fixture(t)
+  await writeFile(join(root, 'a.txt'), 'base a\n')
+  await writeFile(join(root, '[a].txt'), 'base bracket\n')
+  git(root, 'add', '.'); git(root, 'commit', '-m', 'glob-looking paths')
+  await writeFile(join(root, 'a.txt'), 'changed a\n')
+  await writeFile(join(root, '[a].txt'), 'changed bracket\n')
+
+  const result = await service.stage(root, ['[a].txt'])
+  assert.equal(result.ok, true, result.error)
+  assert.deepEqual(git(root, 'diff', '--cached', '--name-only').split('\n'), ['[a].txt'])
+})
+
+test('discard treats a selected glob-looking filename literally', async t => {
+  const { root, service } = await fixture(t)
+  await writeFile(join(root, 'a.txt'), 'base a\n')
+  await writeFile(join(root, '[a].txt'), 'base bracket\n')
+  git(root, 'add', '.'); git(root, 'commit', '-m', 'glob-looking paths')
+  await writeFile(join(root, 'a.txt'), 'changed a\n')
+  await writeFile(join(root, '[a].txt'), 'changed bracket\n')
+
+  const result = await service.discard(root, ['[a].txt'])
+  assert.equal(result.ok, true, result.error)
+  assert.equal(await readFile(join(root, '[a].txt'), 'utf8'), 'base bracket\n')
+  assert.equal(await readFile(join(root, 'a.txt'), 'utf8'), 'changed a\n')
+})
+
+test('push branch input cannot inject --force and rewrite the remote branch', async t => {
+  const { root, base, service } = await fixture(t)
+  const remote = join(base, 'remote.git')
+  git(base, 'init', '--bare', remote)
+  git(root, 'remote', 'add', 'origin', remote)
+  git(root, 'push', '--set-upstream', 'origin', 'main')
+  const older = git(root, 'rev-parse', 'HEAD')
+  await writeFile(join(root, 'tracked.txt'), 'newer commit\n')
+  git(root, 'add', 'tracked.txt'); git(root, 'commit', '-m', 'newer commit')
+  git(root, 'push', 'origin', 'main')
+  const remoteHead = git(remote, 'rev-parse', 'refs/heads/main')
+  assert.notEqual(remoteHead, older)
+  git(root, 'reset', '--hard', older)
+
+  const result = await service.push(root, { remote: 'origin', branch: '--force' })
+  assert.equal(git(remote, 'rev-parse', 'refs/heads/main'), remoteHead)
+  assert.equal(result.ok, false)
+})
+
+test('blame accepts normal and glob-looking repository filenames', async t => {
+  const { root, service } = await fixture(t)
+  await writeFile(join(root, 'README.md'), 'normal blame line\n')
+  await writeFile(join(root, '[a].txt'), 'literal bracket blame line\n')
+  git(root, 'add', '.'); git(root, 'commit', '-m', 'blame paths')
+
+  const normal = await service.blame(root, 'README.md')
+  const bracket = await service.blame(root, '[a].txt')
+  assert.equal(normal.lines[0].content, 'normal blame line')
+  assert.equal(bracket.lines[0].content, 'literal bracket blame line')
 })

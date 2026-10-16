@@ -32,40 +32,56 @@ registerHooks({
 })
 
 const { GitSidebarPanel } = await import(pathToFileURL(resolve(root, 'src/client/panels/GitSidebarPanel.tsx')).href)
+const { GitWorkbenchPage } = await import(pathToFileURL(resolve(root, 'src/client/panels/GitWorkbenchPage.tsx')).href)
 const navigation = await loadTs('src/client/panels/navigation.ts')
-const { createGitPanelOpener, GIT_PANEL_TYPES, GIT_SIDEBAR_TYPE, GIT_SIDEBAR_TITLE } = await loadTs('src/client/sidebar-actions.ts')
+const { createGitPanelOpener, GIT_PANEL_TYPES, GIT_CONVERSATION_VIEW, GIT_WORKBENCH_TITLE } = await loadTs('src/client/sidebar-actions.ts')
 
 const render = (props = {}) => renderToStaticMarkup(React.createElement(GitSidebarPanel, {
   tab: { path: '/repo' }, scope: { sessionId: 'session-1' }, ...props,
 }))
 
-test('the launcher offers exactly one Git entry, whatever the view count', async () => {
+test('Git registers a native conversation view, not a right-sidebar launcher entry', async () => {
   const index = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
-  assert.equal(index.match(/registerTab\(/g)?.length, 1)
-  assert.match(index, /id: GIT_SIDEBAR_TYPE, title: \(\) => GIT_SIDEBAR_TITLE/)
-  // The old shape looped the view map to register one tab per view.
-  assert.doesNotMatch(index, /Object\.keys\(GIT_PANEL_TYPES\)/)
-  assert.doesNotMatch(index, /GIT_PANEL_TYPES\[view\]/)
+  const registration = await readFile(new URL('../src/client/conversation-registration.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(index, /registerTab\(/)
+  assert.match(index, /installGitSidechat/, 'optional sidebar integration is only for AI draft conversations')
+  assert.match(index, /installGitConversationView/)
+  assert.match(registration, /name: 'conversation.view', id: GIT_CONVERSATION_VIEW/)
+  assert.match(registration, /label: \(\) => GIT_WORKBENCH_TITLE, order: 40/)
 })
 
-test('every reachable Git view resolves to that same single sidebar type', () => {
-  assert.equal(GIT_SIDEBAR_TYPE, 'dsh-plugin-git')
-  // betterSidebar.registerTab throws on a duplicate id, and these ids are the
-  // sidebar's own built-ins: a collision would drop this tab from the launcher.
-  const builtInIds = ['editor', 'git', 'subagent', 'sidechat', 'terminal-bottom', 'diff']
-  assert.ok(!builtInIds.includes(GIT_SIDEBAR_TYPE))
-  assert.match(GIT_SIDEBAR_TYPE, /^dsh-plugin-git/, 'the type must stay namespaced to this plugin')
-  assert.equal(GIT_SIDEBAR_TITLE, 'Git')
+test('every reachable Git page resolves to the single namespaced conversation view', () => {
+  assert.equal(GIT_CONVERSATION_VIEW, 'dsh-plugin-git')
+  assert.match(GIT_CONVERSATION_VIEW, /^dsh-plugin-git/)
+  assert.equal(GIT_WORKBENCH_TITLE, 'Git')
   const views = Object.keys(GIT_PANEL_TYPES)
   assert.deepEqual(views.sort(), [...navigation.GIT_PANEL_VIEWS].sort())
   assert.equal(new Set(Object.values(GIT_PANEL_TYPES)).size, 1)
-  assert.equal(Object.values(GIT_PANEL_TYPES)[0], GIT_SIDEBAR_TYPE)
+  assert.equal(Object.values(GIT_PANEL_TYPES)[0], GIT_CONVERSATION_VIEW)
+})
+
+test('only blank-session workbench renders a small conversation/Git tab escape path', () => {
+  const blank = renderToStaticMarkup(React.createElement(GitWorkbenchPage, {
+    cwd: '/repo', useSession: select => select({ blank: true }), onReturnToConversation() {},
+  }))
+  assert.match(blank, /class="dsh-git-workbench" aria-label="Git 工作台"/)
+  assert.match(blank, /title="\/repo"/)
+  assert.match(blank, /role="tablist" aria-label="会话视图"/)
+  assert.match(blank, /role="tab" aria-selected="false"[^>]*>对话<\/button>/)
+  assert.match(blank, /role="tab" aria-selected="true">Git<\/span>/)
+  assert.doesNotMatch(blank, /返回对话/)
+  assert.doesNotMatch(blank, /aria-modal|modal-overlay|position:fixed/)
+
+  const normal = renderToStaticMarkup(React.createElement(GitWorkbenchPage, {
+    cwd: '/repo', useSession: select => select({ blank: false }),
+  }))
+  assert.doesNotMatch(normal, /dsh-git-blank-nav|返回对话/)
 })
 
 test('one panel hosts the pages as tabs and the creation flows as actions', () => {
   const markup = render({ tab: { path: '/repo', meta: { gitView: 'changes' } } })
-  assert.equal(markup.match(/role="tab"/g)?.length, 3)
-  for (const label of ['变更', '提交记录', '工作树']) assert.match(markup, new RegExp(`>${label}<`))
+  assert.equal(markup.match(/role="tab"/g)?.length, 4)
+  for (const label of ['变更', '提交记录', '储藏', '工作树']) assert.match(markup, new RegExp(`>${label}<`))
   for (const label of ['创建分支', '创建工作树']) assert.match(markup, new RegExp(`aria-label="${label}"`))
   assert.match(markup, /dsh-git-view-nav/)
   // Exactly one page body: the requested view, not five stacked panels.
@@ -102,14 +118,10 @@ test('a page that owns its loading state is never wrapped in a second placeholde
   assert.doesNotMatch(worktrees, /正在检测 Git 仓库/)
 })
 
-test('a refused tab registration reports its real reason, not a missing plugin', async () => {
-  const open = createGitPanelOpener({ get: () => ({ openTab() {}, getTab: () => undefined }) })
-  navigation.noteGitSidebarError('tab type "git" already registered')
-  await assert.rejects(
-    () => open('changes', { sessionId: 'session-1', cwd: '/repo' }),
-    /注册失败：tab type "git" already registered/,
-  )
-  // Without a recorded refusal the old "sidebar not ready" wording still applies.
-  navigation.noteGitSidebarError('')
-  await assert.rejects(() => open('changes', { sessionId: 'session-1', cwd: '/repo' }), /尚未就绪/)
+test('a refused conversation view registration reports its real reason', async () => {
+  const open = createGitPanelOpener({})
+  navigation.noteGitViewError('native conversation store missing')
+  await assert.rejects(() => open('changes', { sessionId: 'session-1', cwd: '/repo' }), /注册失败：native conversation store missing/)
+  navigation.noteGitViewError('')
+  await assert.rejects(() => navigation.openGitSessionView('unmounted-session', '/repo', 5), /尚未就绪/)
 })

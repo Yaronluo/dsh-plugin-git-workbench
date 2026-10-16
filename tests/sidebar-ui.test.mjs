@@ -2,37 +2,42 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { loadTs } from './helpers/load-ts.mjs'
-const { createGitPanelOpener, GIT_PANEL_TYPES } = await loadTs('src/client/sidebar-actions.ts')
+const { createGitPanelOpener, GIT_PANEL_TYPES, GIT_CONVERSATION_VIEW } = await loadTs('src/client/sidebar-actions.ts')
+const { bindGitSessionNavigator, activeGitView, openGitSessionView } = await loadTs('src/client/panels/navigation.ts')
 const { installHeroControls } = await loadTs('src/client/hero-registration.ts')
 
-test('every Git view targets the exact Session native right sidebar, never a modal or bottom panel', async () => {
+test('every Git page opens the exact Session native conversation view without a sidebar dependency', async t => {
   const calls = []
-  const sidebar = { getTab: type => ({ id: type }), isTabEnabled: () => true, openTab(seed, scope) { assert.equal(this, sidebar); calls.push({ seed, scope }) } }
-  const open = createGitPanelOpener({ get: () => sidebar })
-  for (const view of Object.keys(GIT_PANEL_TYPES)) await open(view, { cwd: 'D:/worktree', sessionId: 'exact-session' })
-  assert.equal(calls.length, 5)
-  for (const { seed, scope } of calls) {
-    assert.equal(seed.target, 'right')
-    assert.equal(seed.path, 'D:/worktree')
-    assert.equal(seed.reveal, true)
-    assert.deepEqual(scope, { cwd: 'D:/worktree', sessionId: 'exact-session' })
+  t.after(bindGitSessionNavigator('exact-session', { cwd: 'D:/worktree', select: view => calls.push(view) }))
+  const open = createGitPanelOpener({})
+  for (const view of Object.keys(GIT_PANEL_TYPES)) {
+    await open(view, { cwd: 'D:/worktree', sessionId: 'exact-session' })
+    assert.equal(activeGitView('exact-session', 'D:/worktree'), view)
   }
+  assert.deepEqual(calls, Object.keys(GIT_PANEL_TYPES).map(() => GIT_CONVERSATION_VIEW))
 })
 
 test('blank-session panel opening adopts only its explicit project before navigating', async () => {
   const calls = []
-  const sidebar = { getTab: () => ({}), openTab: (seed, scope) => calls.push(['panel', seed.target, scope]) }
-  const open = createGitPanelOpener({ get: () => sidebar,
+  const unbind = bindGitSessionNavigator('new-session', { cwd: 'D:/chosen', select: view => calls.push(['view', view]) })
+  const open = createGitPanelOpener({
     workspaces: { create: async value => { calls.push(['workspace', value]); return { workspaceId: 'chosen-project' } } },
     uiWorkspace: { connectWorkspace: async id => { calls.push(['connect', id]); return 'new-session' }, openWorkspace: async id => calls.push(['navigate', id]) },
   })
-  await open('changes', { cwd: 'D:/chosen' })
-  assert.deepEqual(calls, [['workspace', { path: 'D:/chosen' }], ['connect', 'chosen-project'], ['navigate', 'chosen-project'], ['panel', 'right', { sessionId: 'new-session', cwd: 'D:/chosen' }]])
+  try { await open('changes', { cwd: 'D:/chosen' }) } finally { unbind() }
+  assert.deepEqual(calls, [['workspace', { path: 'D:/chosen' }], ['connect', 'chosen-project'], ['navigate', 'chosen-project'], ['view', GIT_CONVERSATION_VIEW]])
 })
 
-test('missing or disabled sidebar produces an explicit error instead of a modal fallback', async () => {
-  await assert.rejects(createGitPanelOpener({ get: () => undefined })('history', { cwd: '/repo', sessionId: 's' }), /尚未就绪/)
-  await assert.rejects(createGitPanelOpener({ get: () => ({ getTab: () => ({}), openTab() {}, isTabEnabled: () => false }) })('changes', { cwd: '/repo', sessionId: 's' }), /停用/)
+test('navigation waits for mount and rejects stale repository ownership', async () => {
+  await assert.rejects(openGitSessionView('missing', '/repo', 5), /尚未就绪/)
+  const waiting = openGitSessionView('later', '/repo', 500)
+  const calls = []
+  const unbind = bindGitSessionNavigator('later', { cwd: '/repo', select: view => calls.push(view) })
+  try {
+    await waiting
+    assert.deepEqual(calls, [GIT_CONVERSATION_VIEW])
+    await assert.rejects(openGitSessionView('later', '/other'), /目录已改变/)
+  } finally { unbind() }
 })
 
 function presetFixture(extra = {}) {
@@ -88,7 +93,7 @@ test('hero decoration follows replacement/unload and refuses unsupported child o
   dispose()
 })
 
-test('UI entry has no full-screen Git view path or dock-row branch control and no Git detection text', async () => {
+test('UI entry uses a native whole-page Git view without modal, DOM relocation or dock controls', async () => {
   const index = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
   const chip = await readFile(new URL('../src/client/chips/BranchChip.tsx', import.meta.url), 'utf8')
   const diff = await readFile(new URL('../src/client/diff/ChangesTab.tsx', import.meta.url), 'utf8')
@@ -97,4 +102,8 @@ test('UI entry has no full-screen Git view path or dock-row branch control and n
   assert.doesNotMatch(chip + diff, /检测\s*Git|正在检测/)
   assert.match(index, /dsh-git-hero-controls/)
   assert.match(index, /<Original \{\.\.\.props\}/)
+  assert.match(index, /onOpenGitPanel: createGitPanelOpener\(scope\)/, 'BranchChip keeps its dropdown route into the Git tab')
+  assert.match(index, /<BranchChip \{\.\.\.props\} mode="header" \/>/, 'the normal session header keeps only the branch capsule')
+  assert.match(index, /<BranchChip \{\.\.\.props\} \{\.\.\.sharedProps\} \/>/, 'Hero keeps the branch capsule entry point')
+  assert.doesNotMatch(index, /ChangesButton|dsh-git-selector-btn|Git 工作台/)
 })

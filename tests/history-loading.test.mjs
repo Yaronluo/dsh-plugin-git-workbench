@@ -12,8 +12,11 @@ const virtual = source => ({ url: `data:text/javascript,${encodeURIComponent(sou
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL?.endsWith('/dialogs/GitGraphDialog.tsx')) {
-      if (specifier === 'react') return virtual(`export default {}; ${['useState', 'useEffect'].map(name => `export const ${name}=(...args)=>globalThis.__graphHookHarness.${name}(...args);`).join(' ')}`)
+      if (specifier === 'react') return virtual(`export class Component { constructor(props){ this.props=props; this.state={} } setState(next){ this.state={...this.state,...next} } }; export default {Component}; ${['useState', 'useEffect'].map(name => `export const ${name}=(...args)=>globalThis.__graphHookHarness.${name}(...args);`).join(' ')}`)
       if (specifier === 'react/jsx-runtime') return virtual('export const jsx=(type,props)=>({type,props}); export const jsxs=jsx; export const Fragment="fragment";')
+      if (specifier === './CommitDetailDialog.js') {
+        return virtual(globalThis.__graphHookHarness.commitModuleSource ?? 'export function CommitDetailDialog(){ return null }')
+      }
       if (specifier.endsWith('/icons.js')) return virtual(['IconHistory', 'IconRefresh'].map(name => `export const ${name}=()=>null;`).join(' '))
       if (specifier.endsWith('/use-git-status.js')) return virtual('export const useGitStatus=()=>globalThis.__graphHookHarness.status;')
       if (specifier.endsWith('/loading-state.js')) return virtual('export const GitLoadingState=()=>null;')
@@ -28,7 +31,7 @@ registerHooks({
     return nextLoad(url, context)
   },
 })
-const { GitGraphDialog } = await loadTs('src/client/dialogs/GitGraphDialog.tsx')
+const { GitGraphDialog, SelectedCommitDetails } = await loadTs('src/client/dialogs/GitGraphDialog.tsx')
 const { gitApi } = await loadTs('src/client/api.ts')
 const same = (a, b) => a && b && a.length === b.length && a.every((item, i) => Object.is(item, b[i]))
 const commit = hash => ({ hash, shortHash: hash, subject: `提交 ${hash}`, author: 'me', date: '刚刚', refs: [] })
@@ -43,6 +46,7 @@ function fixture() {
   let tree
   const state = globalThis.__graphHookHarness = {
     status: { status: null, error: null },
+    commitModuleSource: null,
     useState(initial) {
       const index = cursor++
       if (!slots[index]) slots[index] = { value: initial }
@@ -72,6 +76,13 @@ function fixture() {
     requests,
     get tree() { return tree },
     statusState(patch) { state.status = { ...state.status, ...patch }; render(); flush() },
+    commitModule(source) { state.commitModuleSource = source },
+    selectCommit(hash) {
+      const row = nodes(tree, node => node.props?.['aria-label']?.includes(` ${hash} `))[0]
+      assert.ok(row, `could not find commit row for ${hash}`)
+      row.props.onClick()
+      flush()
+    },
     async settle() { await setImmediate(); flush() },
     dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getLog = original; delete globalThis.__graphHookHarness },
   }
@@ -116,5 +127,32 @@ test('提交记录 does not wait forever when the repository status itself fails
     f.requests[0].reject(new Error('日志读取失败'))
     await f.settle()
     assert.equal(nodes(f.tree, node => node.props?.children === '日志读取失败').length, 1)
+  } finally { f.dispose() }
+})
+
+test('detail chunk failures remain retryable and the graph tabs can return to the commit list', async () => {
+  const f = fixture()
+  try {
+    f.statusState({ status: { isGit: true, branch: 'main', head: 'head-1' } })
+    f.requests[0].resolve([commit('aaa')])
+    await f.settle()
+
+    f.commitModule('throw new Error("detail chunk unavailable")')
+    f.selectCommit('aaa')
+    await f.settle()
+
+    let detailRegion = nodes(f.tree, node => node.type === SelectedCommitDetails)[0]
+    assert.ok(detailRegion)
+    assert.equal(detailRegion.props.commitRef, 'aaa')
+    assert.equal(detailRegion.props.loadError, 'detail chunk unavailable')
+    assert.equal(typeof detailRegion.props.onRetry, 'function')
+    assert.deepEqual(nodes(f.tree, node => node.props?.role === 'tab').map(node => node.props.children), ['提交', '引用日志'])
+
+    // The failed detail region remains retryable while the graph's normal tab navigation stays mounted.
+    const commitsTab = nodes(f.tree, node => node.props?.role === 'tab' && node.props.children === '提交')[0]
+    commitsTab.props.onClick()
+    await f.settle()
+    assert.equal(nodes(f.tree, node => node.type === SelectedCommitDetails).length, 0)
+    assert.equal(nodes(f.tree, node => node.props?.['aria-label']?.includes(' aaa ')).length, 1)
   } finally { f.dispose() }
 })

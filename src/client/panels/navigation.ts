@@ -1,25 +1,17 @@
-/**
- * The one native sidebar tab every Git page lives in. One tab, one launcher entry.
- *
- * The id must stay namespaced and unique: `betterSidebar.registerTab` throws
- * `tab type "..." already registered` on a duplicate, and the sidebar already owns
- * the plain ids `editor`, `git`, `subagent`, `sidechat`, `terminal-bottom` and
- * `diff` (its built-in `git` tab is the unified 变更 page). Registering as `git`
- * silently lost this tab and left the launcher with no Git entry at all.
- */
-export const GIT_SIDEBAR_TYPE = 'dsh-plugin-git'
-export const GIT_SIDEBAR_TITLE = 'Git'
+/** Native conversation.view identity, displayed beside Chat / Trajectory / Context. */
+export const GIT_CONVERSATION_VIEW = 'dsh-plugin-git'
+export const GIT_WORKBENCH_TITLE = 'Git'
 
 /**
- * The pages inside that single tab. `changes`, `history` and `worktrees` are the
- * persistent pages of the navigation strip; `create-branch` / `create-worktree`
- * are inline forms the strip's action buttons switch to.
+ * The pages inside that single tab. `changes`, `history`, `stashes` and `worktrees`
+ * are the persistent pages of the navigation strip; `create-branch` /
+ * `create-worktree` are inline forms the strip's action buttons switch to.
  */
-export const GIT_PANEL_VIEWS = ['changes', 'history', 'create-branch', 'create-worktree', 'worktrees'] as const
+export const GIT_PANEL_VIEWS = ['changes', 'history', 'stashes', 'create-branch', 'create-worktree', 'worktrees'] as const
 export type GitPanelView = (typeof GIT_PANEL_VIEWS)[number]
 
 export const GIT_PANEL_TITLES: Record<GitPanelView, string> = {
-  changes: '变更', history: '提交记录', 'create-branch': '创建分支',
+  changes: '变更', history: '提交记录', stashes: '储藏', 'create-branch': '创建分支',
   'create-worktree': '创建工作树', worktrees: '工作树',
 }
 
@@ -34,6 +26,7 @@ export function isGitPanelView(value: unknown): value is GitPanelView {
 export const GIT_VIEW_ENTRIES: readonly { view: GitPanelView; primary: boolean }[] = [
   { view: 'changes', primary: true },
   { view: 'history', primary: true },
+  { view: 'stashes', primary: true },
   { view: 'worktrees', primary: true },
   { view: 'create-branch', primary: false },
   { view: 'create-worktree', primary: false },
@@ -68,16 +61,49 @@ export function subscribeGitView(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
-/**
- * Why `registerTab` refused this tab, when it did. The launcher would simply show
- * no Git entry at all otherwise, which reads as "the plugin is not installed".
- */
+/** Registration failures must be visible to shortcut buttons, not silently ignored. */
 let registrationError = ''
+export function noteGitViewError(message: string): void { registrationError = message }
+export function gitViewError(): string { return registrationError }
 
-export function noteGitSidebarError(message: string): void {
-  registrationError = message
+type SessionNavigator = { cwd: string; select: (view: string) => void }
+const navigators = new Map<string, SessionNavigator>()
+const navigationListeners = new Set<() => void>()
+
+function samePath(left: string, right: string): boolean {
+  const normalize = (path: string) => {
+    const value = path.replace(/\\/g, '/').replace(/\/$/, '')
+    return /^[a-z]:\//i.test(value) || value.startsWith('//') ? value.toLowerCase() : value
+  }
+  return normalize(left) === normalize(right)
 }
 
-export function gitSidebarError(): string {
-  return registrationError
+/** The native header's scoped store is shared, not copied or replaced. */
+export function bindGitSessionNavigator(sessionId: string, navigator: SessionNavigator): () => void {
+  navigators.set(sessionId, navigator)
+  for (const listener of [...navigationListeners]) listener()
+  return () => { if (navigators.get(sessionId) === navigator) navigators.delete(sessionId) }
+}
+
+/** Wait for a just-created workspace's native Session header to mount. No DOM polling. */
+export function openGitSessionView(sessionId: string, cwd: string, timeoutMs = 5000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const finish = (error?: Error) => {
+      if (timer) clearTimeout(timer)
+      navigationListeners.delete(check)
+      if (error) reject(error)
+      else resolve()
+    }
+    const check = () => {
+      const navigator = navigators.get(sessionId)
+      if (!navigator) return
+      if (!samePath(navigator.cwd, cwd)) { finish(new Error('会话的仓库目录已改变，请重新打开 Git 工作台')); return }
+      try { navigator.select(GIT_CONVERSATION_VIEW); finish() }
+      catch (error) { finish(error instanceof Error ? error : new Error(String(error))) }
+    }
+    navigationListeners.add(check)
+    timer = setTimeout(() => finish(new Error(gitViewError() || 'Git 会话标签尚未就绪，请重新打开会话后重试')), timeoutMs)
+    check()
+  })
 }

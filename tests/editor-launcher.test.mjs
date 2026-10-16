@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
+import childProcess from 'node:child_process'
+import { EventEmitter } from 'node:events'
+import { syncBuiltinESMExports } from 'node:module'
 import { loadTs } from './helpers/load-ts.mjs'
 
 const { createEditorLauncher } = await loadTs('src/host/editor-launcher.ts')
@@ -109,6 +112,66 @@ test('without an editor CLI the host opener is preferred over spawning a shell',
   assert.equal(result.ok, true)
   assert.deepEqual(opened, [resolve(repo, 'src/a.ts')])
   assert.deepEqual(launched, [])
+})
+
+test('paths beginning with two dots are ordinary in-repository names', async () => {
+  const f = fixture()
+  assert.equal((await f.launcher.open({ repo, file: '..notes.txt' })).ok, true)
+  assert.equal(f.launched.length, 1)
+})
+
+test('unsafe characters in the repository path are refused before launching', async () => {
+  const f = fixture()
+  for (const file of [undefined, 'src/a.ts']) {
+    const result = await f.launcher.open({ repo: resolve('repo&command'), file })
+    assert.equal(result.ok, false)
+    assert.match(result.error, /不支持/)
+  }
+  assert.deepEqual(f.launched, [])
+})
+
+test('asynchronous process start failures are reported for all external launch paths', async () => {
+  for (const available of [true, false]) {
+    const launcher = createEditorLauncher({
+      platform: 'win32', env: {}, fileExists: () => true,
+      resolveCommand: async () => available ? 'missing.exe' : undefined,
+      launch: async () => { throw new Error('spawn ENOENT') },
+    })
+    const result = await launcher.open({ repo, file: 'src/a.ts' })
+    assert.equal(result.ok, false)
+    assert.match(result.error, /ENOENT/)
+    const revealed = await launcher.reveal({ repo, file: 'src/a.ts' })
+    assert.equal(revealed.ok, false)
+    assert.match(revealed.error, /ENOENT/)
+  }
+})
+
+test('the real detached spawner reports a missing executable instead of swallowing its error', async () => {
+  const launcher = createEditorLauncher({
+    env: {}, fileExists: () => true,
+    resolveCommand: async () => resolve(repo, 'definitely-missing-editor.exe'),
+  })
+  const result = await launcher.open({ repo, file: 'src/a.ts' })
+  assert.equal(result.ok, false)
+  assert.match(result.error, /ENOENT/)
+})
+
+test('Windows batch editor shims quote executable and file paths containing spaces', { skip: process.platform !== 'win32' }, async t => {
+  const spawned = []
+  t.mock.method(childProcess, 'spawn', (...args) => {
+    spawned.push(args)
+    const child = new EventEmitter()
+    child.unref = () => {}
+    queueMicrotask(() => child.emit('spawn'))
+    return child
+  })
+  syncBuiltinESMExports()
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports() })
+  const command = 'C:\\Program Files\\VS Code\\bin\\code.cmd'
+  const launcher = createEditorLauncher({ env: {}, fileExists: () => true, resolveCommand: async () => command })
+  const result = await launcher.open({ repo, file: 'src/my file.ts', line: 12 })
+  assert.equal(result.ok, true)
+  assert.deepEqual(spawned, [[`"${command}"`, ['"-g"', `"${resolve(repo, 'src/my file.ts')}:12"`], { detached: true, stdio: 'ignore', shell: true }]])
 })
 
 test('a refused host opener still ends in the platform default instead of failing the click', async () => {
