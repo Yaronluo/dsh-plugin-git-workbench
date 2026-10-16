@@ -68,7 +68,7 @@ export const STYLES = `
 .dsh-git-search-box { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 8px 10px 4px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
 .dsh-git-search-input { border: none; outline: none; background: transparent; width: 100%; font-size: 13px; color: var(--dsw-alias-label-primary); }
 .dsh-git-dirty-warning { padding: 6px 14px; font-size: 12px; color: var(--dsw-alias-state-warn-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 10%, transparent); margin: 4px 10px; border-radius: 6px; }
-.dsh-git-branch-list { flex: 1; overflow-y: auto; max-height: 240px; padding: 4px 6px; }
+.dsh-git-branch-list { flex: 0 1 auto; min-height: 0; overflow-y: auto; max-height: 240px; padding: 4px 6px; }
 .dsh-git-branch-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 7px 10px; border-radius: 6px; border: none; background: transparent; color: var(--dsw-alias-label-primary); font-size: 13px; text-align: left; cursor: pointer; }
 .dsh-git-branch-item-active { font-weight: 600; color: var(--dsw-alias-brand-primary); }
 .dsh-git-branch-item-left { display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -116,6 +116,30 @@ export const STYLES = `
 .dsh-git-option-copy > span { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .dsh-git-option-copy small { padding: 0 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; font-size: 9px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
 .dsh-git-compare-option:disabled { cursor: not-allowed; opacity: .55; }
+/* The editor picker reuses the compare dropdown's idiom, but anchored to the right edge
+   of the diff header's action row. */
+.dsh-git-editor-control { position: relative; display: inline-flex; }
+.dsh-git-editor-backdrop { position: fixed; inset: 0; z-index: 999; }
+.dsh-git-editor-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1000; display: flex; flex-direction: column; gap: 2px; width: 268px; padding: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 11px; background: var(--dsw-alias-bg-layer-1); box-shadow: 0 10px 32px color-mix(in srgb, var(--dsw-alias-bg-overlay) 35%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-bg-overlay) 12%, transparent); }
+.dsh-git-editor-option { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: left; cursor: pointer; }
+.dsh-git-editor-option:hover { background: var(--dsw-alias-bg-layer-2); }
+.dsh-git-editor-option > svg { flex-shrink: 0; color: var(--dsw-alias-label-secondary); }
+.dsh-git-editor-option > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The mark is a span too, so it must win back the label rule's flex: 1. */
+.dsh-git-editor-option > .dsh-git-editor-mark { flex: 0 0 auto; }
+.dsh-git-editor-option > small { flex-shrink: 0; font-family: ${CODE_FONT}; font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.dsh-git-editor-option-split { margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--dsw-alias-border-l1); border-radius: 0 0 7px 7px; }
+.dsh-git-editor-hint { display: flex; align-items: center; padding: 8px 9px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+/* Brand marks carry their own colours in src/client/editor-icons.tsx; an editor we have no mark
+   for falls back to a monogram in theme tones. */
+.dsh-git-editor-mark { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 4px; font-family: ${CODE_FONT}; font-weight: 600; line-height: 1; }
+.dsh-git-editor-mark-glyph { border: 0; }
+/* The real icon arrives from the executable as a PNG data URL. */
+.dsh-git-editor-mark-image { border: 0; object-fit: contain; }
+.dsh-git-editor-mark-quiet { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.dsh-git-editor-mark-outline { border-color: var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-brand-primary); }
+.dsh-git-editor-spinner { flex-shrink: 0; width: 11px; height: 11px; margin-right: 7px; border: 2px solid color-mix(in srgb, var(--dsw-alias-label-secondary) 30%, transparent); border-top-color: var(--dsw-alias-label-secondary); border-radius: 50%; animation: dsh-git-editor-spin .7s linear infinite; }
+@keyframes dsh-git-editor-spin { to { transform: rotate(360deg); } }
 .dsh-git-changes-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; min-height: 160px; padding: 32px 20px; text-align: center; color: var(--dsw-alias-label-secondary); }
 .dsh-git-loading-icon, .dsh-git-state-icon { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; margin-bottom: 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
 .dsh-git-changes-loading strong { margin-top: 14px; font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-primary); }
@@ -228,6 +252,11 @@ export const STYLES = `
 .dsh-git-workbench .dsh-git-history-list { flex: none; overflow: visible; padding: 0 24px 24px; }
 .dsh-git-workbench .dsh-git-panel-form { height: auto; min-height: 100%; }
 .dsh-git-workbench .dsh-git-panel-form .dsh-git-modal-body { flex: none; overflow: visible; }
+/* History/blame takes over the slot the file list and diff normally occupy, so it is on
+   screen at once; that slot has a definite height, which keeps its own list scrolling. */
+.dsh-git-changes-body > .dsh-git-panel-form { flex: 1 1 auto; min-width: 0; }
+.dsh-git-workbench .dsh-git-changes-body > .dsh-git-panel-form { height: 100%; min-height: 0; overflow: hidden; }
+.dsh-git-workbench .dsh-git-changes-body > .dsh-git-panel-form .dsh-git-modal-body { flex: 1; overflow: auto; }
 .dsh-git-view-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 8px 24px; border-bottom: 1px solid var(--dsw-alias-border-l1); flex-shrink: 0; background: var(--dsw-alias-bg-base); }
 .dsh-git-view-pages { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; }
 .dsh-git-view-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
@@ -447,6 +476,8 @@ export const STYLES = `
 .dsh-git-popover-section { padding: 4px 10px 8px; }
 .dsh-git-popover-actions { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
 .dsh-git-popover-actions .dsh-git-btn { flex: 1; justify-content: center; }
+.dsh-git-popover-notice { margin: 6px 10px 0; padding: 7px 10px; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; color: var(--dsw-alias-state-success-primary); background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent); }
+.dsh-git-popover-error { margin: 4px 10px 0; padding: 7px 10px; border-radius: 6px; font-size: 12px; }
 .dsh-git-tab-strip { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); }
 .dsh-git-tab { flex: 1; padding: 5px 8px; border: none; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 12px; cursor: pointer; }
 .dsh-git-tab-active { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }

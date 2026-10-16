@@ -47,13 +47,18 @@ interface SelectedCommitDetailsProps {
   loadError: string | null
   onBack: () => void
   onRetry: () => void
+  /**
+   * `false` in the commit list, which keeps its own selected row visible. A nested view
+   * (a file's history) needs the "返回" affordance, or it traps the user in the detail.
+   */
+  showBackButton?: boolean
 }
 
 /** Keep navigation independent of the lazy detail chunk and its render state. */
-export function SelectedCommitDetails({ path, commitRef, DetailComponent, loadError, onBack, onRetry }: SelectedCommitDetailsProps) {
+export function SelectedCommitDetails({ path, commitRef, DetailComponent, loadError, onBack, onRetry, showBackButton = false }: SelectedCommitDetailsProps) {
   return <div className='dsh-git-section'>
     {DetailComponent ? <CommitDetailErrorBoundary key={JSON.stringify([path, commitRef])}>
-      <DetailComponent path={path} commitRef={commitRef} onClose={onBack} showBackButton={false} />
+      <DetailComponent path={path} commitRef={commitRef} onClose={onBack} showBackButton={showBackButton} />
     </CommitDetailErrorBoundary>
       : loadError ? <>
         <p className='dsh-git-error' role='alert'>{loadError}</p>

@@ -256,6 +256,12 @@ export function registerRoutes(
         writeJson(res, 200, { ok: true })
         return
       }
+      if (url.pathname === '/dsh-git/editors') {
+        // Machine-level, like a report: the picker asks which editors this machine has, so
+        // this deliberately runs before the required `path`.
+        writeJson(res, 200, { ok: true, value: await editor.listEditors() })
+        return
+      }
       // A missing cwd is an error, never authority to modify the first workspace.
       const path = stringField(payload, 'path')!
       const required = (name: string) => stringField(payload, name)!
@@ -381,8 +387,9 @@ export function registerRoutes(
         case '/dsh-git/open-in-editor': {
           // Opens the user's own editor. A refusal (path outside the repo, deleted
           // file) is reported as ok:false so the panel can show why nothing opened.
+          // `editor` is the picker's choice; without it the launcher probes by itself.
           if (payload.line !== undefined && (!Number.isInteger(payload.line) || payload.line < 1)) throw badRequest('line must be a positive integer')
-          writeJson(res, 200, await editor.open({ repo: path, file: optional('file'), line: payload.line })); return
+          writeJson(res, 200, await editor.open({ repo: path, file: optional('file'), line: payload.line }, optional('editor'))); return
         }
         case '/dsh-git/reveal': writeJson(res, 200, await editor.reveal({ repo: path, file: optional('file') })); return
 

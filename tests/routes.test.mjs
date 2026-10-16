@@ -20,7 +20,10 @@ class Response extends EventEmitter {
 function setup(service, options = {}) {
   let handler
   let removed = false
-  const dispose = registerRoutes({ webServer: { register: route => { handler = route.handler; return () => { removed = true } } } }, service, options)
+  // Without an editor stand-in the real launcher is built, and the real one warms an icon cache
+  // by spawning the shell. Route tests care about routing, so keep the machine out of it.
+  const withEditor = { editorLauncher: { open: async () => ({ ok: true }), listEditors: async () => [], reveal: async () => ({ ok: true }) }, ...options }
+  const dispose = registerRoutes({ webServer: { register: route => { handler = route.handler; return () => { removed = true } } } }, service, withEditor)
   return { handler, dispose, get removed() { return removed } }
 }
 async function request(handler, path, payload, method = 'POST') {
@@ -141,6 +144,49 @@ test('the editor route forwards a refusal instead of inventing success', async t
   const res = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'gone.ts' })
   assert.equal(res.status, 200)
   assert.deepEqual(JSON.parse(res.chunks.join('')), { ok: false, error: '该文件已不存在，可能已被删除。' })
+})
+
+test('the editors route answers without a repository, because the picker runs before one is chosen', async t => {
+  const listed = []
+  const runtime = setup({}, { editorLauncher: { listEditors: async () => { listed.push('probe'); return [{ command: 'code', label: 'VS Code', goto: true }] } } })
+  t.after(runtime.dispose)
+  const res = await request(runtime.handler, '/dsh-git/editors', {})
+  assert.equal(res.status, 200)
+  assert.deepEqual(JSON.parse(res.chunks.join('')), { ok: true, value: [{ command: 'code', label: 'VS Code', goto: true }] })
+  assert.deepEqual(listed, ['probe'])
+})
+
+test('the editor route forwards the picker choice, including the system default', async t => {
+  const opened = []
+  const runtime = setup({}, { editorLauncher: { open: async (target, editor) => { opened.push([target, editor]); return { ok: true, target: target.file } } } })
+  t.after(runtime.dispose)
+  const chosen = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'src/a.ts', editor: 'code' })
+  assert.equal(chosen.status, 200)
+  const system = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'src/a.ts', editor: 'system' })
+  assert.equal(system.status, 200)
+  assert.deepEqual(opened, [
+    [{ repo: 'R', file: 'src/a.ts', line: undefined }, 'code'],
+    [{ repo: 'R', file: 'src/a.ts', line: undefined }, 'system'],
+  ])
+})
+
+test('an editor choice that is not a string is rejected before the launcher sees it', async t => {
+  const opened = []
+  const runtime = setup({}, { editorLauncher: { open: async target => { opened.push(target); return { ok: true } } } })
+  t.after(runtime.dispose)
+  for (const editor of [42, ['code'], { command: 'code' }]) {
+    const res = await request(runtime.handler, '/dsh-git/open-in-editor', { path: 'R', file: 'src/a.ts', editor })
+    assert.equal(res.status, 400, JSON.stringify(editor))
+  }
+  assert.deepEqual(opened, [])
+})
+
+test('a failing editor probe is reported instead of an empty picker that looks installed', async t => {
+  const runtime = setup({}, { editorLauncher: { listEditors: async () => { throw new Error('PATH 读取失败') } } })
+  t.after(runtime.dispose)
+  const res = await request(runtime.handler, '/dsh-git/editors', {})
+  assert.equal(res.status, 500)
+  assert.equal(JSON.parse(res.chunks.join('')).error, 'PATH 读取失败')
 })
 
 test('the blob route streams image bytes and refuses everything else', async t => {

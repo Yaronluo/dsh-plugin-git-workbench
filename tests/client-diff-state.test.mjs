@@ -18,6 +18,9 @@ registerHooks({
       // The inspector is a separate panel with its own requests; this test only checks that
       // the diff panel offers the entry point, so the dialog itself stays inert data.
       if (specifier.endsWith('/dialogs/FileInspectDialog.js')) return virtual('export const FileInspectDialog=()=>null;')
+      // The editor picker owns its own request and menu (see editor-menu.test.mjs); here only
+      // the wiring matters: which repository and file it is handed.
+      if (specifier.endsWith('/editor-menu.js')) return virtual('export const OpenInEditorMenu=()=>null;')
       if (specifier.endsWith('/cwd-resolver.js')) return virtual('export const useWorkspaceCwd=()=>globalThis.__diffHookHarness.cwd;')
       if (specifier.endsWith('/use-git-status.js')) return virtual('export const useGitStatus=()=>globalThis.__diffHookHarness.status;')
       if (specifier.endsWith('/loading-state.js')) return virtual('export const GitLoadingState=()=>null;')
@@ -49,12 +52,9 @@ function fixture(options = {}) {
   const sessionId = options.sessionId ?? `diff-state-session-${++fixtureSequence}`
   const initialCwd = options.cwd ?? '/a'
   const original = gitApi.getDiff
-  const originalOpenInEditor = gitApi.openInEditor
   const originalGetConflicts = gitApi.getConflicts
   const requests = []
   const conflictRequests = []
-  const editorRequests = []
-  let editorResult = { ok: true, editor: 'VS Code' }
   const slots = []
   let cursor = 0
   let effects = []
@@ -89,7 +89,6 @@ function fixture(options = {}) {
   }
   gitApi.getDiff = (cwd, base, target, signal, options) => new Promise((resolve, reject) => requests.push({ cwd, base, target, signal, options, resolve, reject })) // Ignore cancellation to prove publish guards.
   gitApi.getConflicts = cwd => new Promise((resolve, reject) => conflictRequests.push({ cwd, resolve, reject })) // Ignore cancellation to prove publish guards.
-  gitApi.openInEditor = async (path, file) => { editorRequests.push({ path, file }); return editorResult }
   const attachScrollRefs = tree => {
     for (const node of nodes(tree, node => ['dsh-git-file-list', 'dsh-git-diff-lines'].includes(node.props?.className))) {
       if (node.props.ref && node.props.ref.current == null) node.props.ref.current = { scrollTop: 0 }
@@ -108,8 +107,6 @@ function fixture(options = {}) {
   return {
     requests,
     conflictRequests,
-    get editorRequests() { return editorRequests },
-    set editorResult(value) { editorResult = value },
     set deliverPrompt(value) { state.deliverPrompt = value },
     get result() { return slots[5].value }, // ChangesTab: selection, comparison, dropdown, refresh, editor notice, request result.
     get tree() { return tree },
@@ -121,7 +118,7 @@ function fixture(options = {}) {
     change(node, value) { node.props.onChange({ currentTarget: { value } }); render(); flush() },
     keyDown(node, key) { node.props.onKeyDown({ key, stopPropagation() {}, currentTarget: { querySelector: () => null } }); render(); flush() },
     async settle() { await setImmediate(); flush() },
-    dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getDiff = original; gitApi.openInEditor = originalOpenInEditor; gitApi.getConflicts = originalGetConflicts; delete globalThis.__diffHookHarness },
+    dispose() { slots.forEach(slot => slot?.cleanup?.()); gitApi.getDiff = original; gitApi.getConflicts = originalGetConflicts; delete globalThis.__diffHookHarness },
   }
 }
 
@@ -276,26 +273,28 @@ test('ChangesTab restores allow-listed state and scroll after a session slot rem
   }
 })
 
-test('the open file offers an external editor button that reports what the host did', async () => {
+test('the open file offers an external editor picker wired to that file', async () => {
   const f = fixture()
   try {
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
-    const button = nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-open-editor'))
-    assert.equal(button.length, 1)
-    assert.equal(button[0].props.title, '在外部编辑器中打开这个文件')
+    const picker = nodes(f.tree, node => node.type?.name === 'OpenInEditorMenu')
+    assert.equal(picker.length, 1)
+    assert.equal(picker[0].props.repo, '/a')
+    assert.equal(picker[0].props.file, 'src/a.ts')
     // Path, stats and the action share one header row: wrapping them produced a tall
     // header with the button floating in the middle.
     const header = nodes(f.tree, node => node.props?.className === 'dsh-git-diff-header')
     assert.equal(header.length, 1)
     assert.equal(nodes(header[0], node => node.props?.className === 'dsh-git-diff-file').length, 1)
     assert.equal(nodes(header[0], node => node.props?.className === 'dsh-git-diff-path').length, 1)
-    f.click(button[0])
+    assert.equal(nodes(header[0], node => node.type?.name === 'OpenInEditorMenu').length, 1)
+    // The picker performs the request; the panel only renders what it reports back.
+    picker[0].props.onNotice({ ok: true, text: '已用 Zed 打开：src/a.ts' })
     await f.settle()
-    assert.deepEqual(f.editorRequests, [{ path: '/a', file: 'src/a.ts' }])
     const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-editor-notice')
     assert.equal(notice.length, 1)
-    assert.match(notice[0].props.children, /已用 VS Code 打开/)
+    assert.match(notice[0].props.children, /已用 Zed 打开/)
   } finally { f.dispose() }
 })
 
@@ -304,12 +303,43 @@ test('a refused open surfaces the host reason and never claims success', async (
   try {
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
-    f.editorResult = { ok: false, error: '文件已不存在，可能已被删除或重命名' }
-    f.click(nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-open-editor'))[0])
+    nodes(f.tree, node => node.type?.name === 'OpenInEditorMenu')[0]
+      .props.onNotice({ ok: false, text: '文件已不存在，可能已被删除或重命名' })
     await f.settle()
     const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-error')
     assert.equal(notice.length, 1)
     assert.equal(notice[0].props.children, '文件已不存在，可能已被删除或重命名')
+  } finally { f.dispose() }
+})
+
+test('file history takes over the change body instead of being appended under the commit form', async () => {
+  const f = fixture()
+  try {
+    f.requests[0].resolve(diff('src/a.ts'))
+    await f.settle()
+    const menu = nodes(f.tree, node => node.props?.title === '查看这个文件的历史与逐行责任')
+    assert.equal(menu.length, 1)
+    f.click(menu[0])
+    await f.settle()
+
+    const children = [].concat(f.tree.props.children ?? [])
+    const bodyIndex = children.findIndex(node => node?.props?.className === 'dsh-git-changes-body')
+    const commitIndex = children.findIndex(node => node?.props?.className === 'dsh-git-commit-box')
+    assert.ok(bodyIndex >= 0 && commitIndex > bodyIndex)
+    const body = children[bodyIndex]
+    // The inspector replaces both columns and the commit form stays the last child: rendered
+    // after it, the panel landed below the workbench viewport, which read as "no reaction".
+    assert.equal(nodes(body, node => node.type?.name === 'FileInspectDialog').length, 1)
+    assert.equal(nodes(body, node => node.props?.className === 'dsh-git-changes-side').length, 0)
+    assert.equal(nodes(body, node => node.props?.className === 'dsh-git-diff-view').length, 0)
+    assert.equal(nodes(children[commitIndex], node => node.type?.name === 'FileInspectDialog').length, 0)
+    assert.equal(children.slice(commitIndex + 1).length, 0)
+
+    nodes(body, node => node.type?.name === 'FileInspectDialog')[0].props.onClose()
+    await f.settle()
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-changes-side').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-diff-view').length, 1)
+    assert.equal(nodes(f.tree, node => node.type?.name === 'FileInspectDialog').length, 0)
   } finally { f.dispose() }
 })
 

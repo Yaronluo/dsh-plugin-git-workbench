@@ -79,3 +79,19 @@ test('selected commit chunk failure keeps its alert and retry action without a b
   assert.match(html, /chunk unavailable/)
   assert.match(html, /重试加载详情/)
 })
+
+// The file-history dialog nests this view, so there the detail must offer a way back out.
+test('a nested detail keeps a return path to the view underneath it', () => {
+  const html = renderToString(React.createElement(SelectedCommitDetails, {
+    path: '/repo',
+    commitRef: 'deadbeef',
+    DetailComponent: CommitDetailDialog,
+    loadError: null,
+    showBackButton: true,
+    onBack() {},
+    onRetry() {},
+  }))
+
+  assert.match(html, />返回<\/button>/)
+  assert.match(html, /提交详情/)
+})

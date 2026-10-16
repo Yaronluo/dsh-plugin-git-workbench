@@ -297,3 +297,22 @@ export interface RemoteItem {
   /** `fetch` or `push`. */
   kind: string
 }
+
+/**
+ * One external editor the panel can offer. The list is what this machine actually has,
+ * so the picker never offers a command that would fail after the click.
+ */
+export interface EditorChoice {
+  /** Bare command name, echoed back when the user picks this editor. */
+  command: string
+  /** Human-readable name shown in the picker. */
+  label: string
+  /** `true` when this editor's CLI accepts `-g <file>[:line]`. */
+  goto: boolean
+  /**
+   * The application's own icon as a PNG data URL, read from the executable by the host.
+   * Absent when the host cannot read one (non-Windows, or an unknown binary); the picker
+   * then falls back to its own mark.
+   */
+  icon?: string
+}

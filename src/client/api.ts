@@ -1,7 +1,7 @@
 import type {
   ActionResult, BlameView, BranchesView, ChangeList, CommitDetail, CommitResult, ConflictFile, DiscardResult,
-  DiffView, FileHistoryEntry, GitGraphCommit, OperationState, ReflogEntry, RemoteItem, RepoStatus, StashEntry,
-  SwitchResult, SyncResult, TagItem, WorktreeItem,
+  DiffView, EditorChoice, FileHistoryEntry, GitGraphCommit, OperationState, ReflogEntry, RemoteItem, RepoStatus,
+  StashEntry, SwitchResult, SyncResult, TagItem, WorktreeItem,
 } from '../core/types.js'
 
 export function getEndpointUrl(endpoint: string): string {
@@ -248,9 +248,17 @@ export const gitApi = {
     return postJson('tag-delete', { path, name })
   },
 
-  /** Opens a repository-relative file (or the repository itself) in the user's editor. */
-  openInEditor(path: string, file?: string, line?: number): Promise<{ ok: boolean; editor?: string; target?: string; error?: string }> {
-    return postJson('open-in-editor', { path, file, line })
+  /** Editors this machine can actually open files with, for the header's picker. */
+  listEditors(): Promise<EditorChoice[]> {
+    return postJson('editors', {})
+  },
+  /**
+   * Opens a repository-relative file (or the repository itself) in the user's editor.
+   * `editor` is a command from `listEditors()`, or `'system'` for the OS default app;
+   * omitting it keeps the host's own probing.
+   */
+  openInEditor(path: string, file?: string, line?: number, editor?: string): Promise<{ ok: boolean; editor?: string; target?: string; error?: string }> {
+    return postJson('open-in-editor', { path, file, line, editor })
   },
   /** Shows the file (or the repository folder) in the platform file manager. */
   reveal(path: string, file?: string): Promise<{ ok: boolean; target?: string; error?: string }> {

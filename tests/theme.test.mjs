@@ -9,13 +9,18 @@ const allowed = new Set(['bg-base', 'bg-layer-1', 'bg-layer-2', 'bg-overlay', 'b
 allowed.add('--ds-font-family-code')
 allowed.add('--dsw-font-family')
 
+// Editor brand marks are product identity, not a theme decision — no semantic token can say
+// "VS Code blue". Exactly this one file may carry literal colours; everything else stays
+// token-only, and `tests/editor-menu.test.mjs` covers what the marks render.
+const BRAND_MARK_FILE = 'editor-icons.tsx'
+
 test('plugin CSS and inline styles reference declared host theme tokens only', async () => {
   const contents = [STYLES]
   async function scan(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), directory)
       if (entry.isDirectory()) await scan(url)
-      else if (/\.tsx?$/.test(entry.name)) contents.push(await readFile(url, 'utf8'))
+      else if (/\.tsx?$/.test(entry.name) && entry.name !== BRAND_MARK_FILE) contents.push(await readFile(url, 'utf8'))
     }
   }
   await scan(new URL('../src/client/', import.meta.url))

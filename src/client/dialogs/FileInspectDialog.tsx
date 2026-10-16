@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react'
+import type { FunctionComponent } from 'react'
 import type { BlameLine, BlameView, FileHistoryEntry } from '../../core/types.js'
 import { errorMessage, gitApi } from '../api.js'
-import { IconClose, IconCopy, IconExternalLink, IconFile, IconFolderTree, IconRefresh } from '../icons.js'
+import { IconClose, IconCopy, IconFile, IconFolderTree, IconRefresh } from '../icons.js'
+import { OpenInEditorMenu } from '../editor-menu.js'
 import { groupBlameLines } from './blame-groups.js'
+import type { CommitDetailDialogProps } from './CommitDetailDialog.js'
 import { DialogShell } from './DialogShell.js'
+import { SelectedCommitDetails } from './GitGraphDialog.js'
 
 type DialogTab = 'history' | 'blame'
 type InspectionResult = {
@@ -23,10 +27,35 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
   const [result, setResult] = useState<InspectionResult | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  // Which commit the user drilled into from this file's history. Keyed by file so a
+  // reused dialog never shows the previous file's commit.
+  const [drilled, setDrilled] = useState<{ file: string; hash: string } | null>(null)
+  const [DetailComponent, setDetailComponent] = useState<FunctionComponent<CommitDetailDialogProps> | null>(null)
+  const [detailError, setDetailError] = useState<string | null>(null)
+  const [detailAttempt, setDetailAttempt] = useState(0)
   const requestKey = JSON.stringify([path, file, tab, refresh])
   const currentResult = result?.key === requestKey ? result : null
   const loading = currentResult?.loading ?? true
   const close = () => onClose?.()
+  const commitRef = drilled && drilled.file === file ? drilled.hash : null
+
+  const openCommit = (hash: string) => {
+    onOpenCommit?.(hash)
+    setDrilled({ file, hash })
+  }
+
+  // The detail view is a lazy chunk; the history list stays usable if it cannot load.
+  useEffect(() => {
+    if (!commitRef || DetailComponent) return
+    let active = true
+    setDetailError(null)
+    import('./CommitDetailDialog.js').then(module => {
+      if (active) setDetailComponent(() => module.CommitDetailDialog)
+    }).catch(error => {
+      if (active) setDetailError(errorMessage(error))
+    })
+    return () => { active = false }
+  }, [commitRef, DetailComponent, detailAttempt])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -98,8 +127,8 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
     </div>
     <div className="dsh-git-modal-body" style={{ padding: 0, gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
       <div className="dsh-git-tab-strip" role="tablist" aria-label="文件检查视图" style={{ margin: '10px 12px 0' }}>
-        <button type="button" role="tab" aria-selected={tab === 'history'} className={`dsh-git-tab ${tab === 'history' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('history') }}>历史</button>
-        <button type="button" role="tab" aria-selected={tab === 'blame'} className={`dsh-git-tab ${tab === 'blame' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('blame') }}>责任</button>
+        <button type="button" role="tab" aria-selected={tab === 'history'} className={`dsh-git-tab ${tab === 'history' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('history'); setDrilled(null) }}>历史</button>
+        <button type="button" role="tab" aria-selected={tab === 'blame'} className={`dsh-git-tab ${tab === 'blame' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('blame'); setDrilled(null) }}>责任</button>
       </div>
 
       {tab === 'history' ? <>
@@ -107,22 +136,26 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
           <span className="dsh-git-section-head">提交历史 <span className="dsh-git-badge">{history?.length ?? 0}</span></span>
           <span className="dsh-git-spacer" />
           <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void copyPath() }}><IconCopy size={14} />复制路径</button>
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void runApiAction(() => gitApi.openInEditor(path, file), '已在编辑器中打开') }}><IconExternalLink size={14} />在编辑器中打开</button>
+          <OpenInEditorMenu repo={path} file={file} onNotice={setNotice} />
           <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void runApiAction(() => gitApi.reveal(path, file), '已在文件管理器中打开') }}><IconFolderTree size={14} />打开文件管理器</button>
           <button type="button" className="dsh-git-btn dsh-git-btn-secondary" aria-label="刷新文件历史" title="刷新" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} className={loading ? 'dsh-git-spin' : ''} />刷新</button>
         </div>
         {notice && <div className={`dsh-git-changes-notice ${notice.ok ? '' : 'dsh-git-error'}`} role={notice.ok ? 'status' : 'alert'}>{notice.text}</div>}
-        <div className="dsh-git-scroll-list">
-          {loading ? <div className="dsh-git-panel-message" role="status">正在读取文件历史…</div>
-            : requestError ? <div className="dsh-git-empty-state"><div className="dsh-git-error" role="alert">{requestError}</div></div>
-              : !history?.length ? <div className="dsh-git-empty-state">暂无文件历史</div>
-                : history.map(entry => <button type="button" key={entry.hash} className="dsh-git-reflog-row" title={entry.hash} onClick={() => onOpenCommit?.(entry.hash)}>
-                  <code>{entry.shortHash}</code>
-                  <span>{entry.subject}</span>
-                  <span className="dsh-git-muted" style={{ flex: '0 1 auto' }}>{entry.author}</span>
-                  <time className="dsh-git-muted">{entry.date}</time>
-                </button>)}
-        </div>
+        {commitRef ? <SelectedCommitDetails path={path} commitRef={commitRef}
+          DetailComponent={DetailComponent} loadError={detailError} showBackButton
+          onBack={() => setDrilled(null)}
+          onRetry={() => setDetailAttempt(value => value + 1)} />
+          : <div className="dsh-git-scroll-list">
+            {loading ? <div className="dsh-git-panel-message" role="status">正在读取文件历史…</div>
+              : requestError ? <div className="dsh-git-empty-state"><div className="dsh-git-error" role="alert">{requestError}</div></div>
+                : !history?.length ? <div className="dsh-git-empty-state">暂无文件历史</div>
+                  : history.map(entry => <button type="button" key={entry.hash} className="dsh-git-reflog-row" title={entry.hash} onClick={() => openCommit(entry.hash)}>
+                    <code>{entry.shortHash}</code>
+                    <span>{entry.subject}</span>
+                    <span className="dsh-git-muted" style={{ flex: '0 1 auto' }}>{entry.author}</span>
+                    <time className="dsh-git-muted">{entry.date}</time>
+                  </button>)}
+          </div>}
       </> : <>
         <div className="dsh-git-panel-toolbar">
           <span className="dsh-git-mono" title={file}>{file}</span>

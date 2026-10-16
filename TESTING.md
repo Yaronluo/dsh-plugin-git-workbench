@@ -206,6 +206,81 @@ node --check lib/client.js
 - 自检：`src/client/diagnostics.ts` 会把运行中的 build 标记、样式表长度、面板真实元素的最终字体、`fontAvailability()` 的 canvas 实测结果 POST 到 `/dsh-git/client-report`，Host 写入临时目录 `dsh-plugin-git-client-report-<source>.json`。排查「改了没生效」时先读它，不要再靠肉眼看截图猜。
 - `tests/styles-injection.test.mjs` 新增两条回归：字体链必须以已安装的 CJK 字体开头、应用 token 必须排在它们之后；注入的样式表必须镜像 `:root` 的字体。
 
+## 第六轮截图反馈（分支浮层的两行噪音）
+
+- **与上游一致时不再打印「领先 0 个提交，落后 0 个提交」**：这一行来自 `# branch.ab +0 -0`（`src/core/git-command.ts:8-13` 解析成 `status.ahead/behind`），只要有上游就渲染，于是同步状态下占掉一整行却说零信息，也和 `BranchChip` 的 `↑/↓` 徽标（0 时不显示）行为不一致。现在 `src/client/chips/BranchPopover.tsx:54` 用 `diverged`（任一侧大于 0）才渲染该行；储藏徽标不受影响，`0/0` 但有储藏时那一行仍然显示。
+- **不再列出点了必然报错的远程分支**：点 `origin/master` 触发的是 Host 守卫 `src/host/git-service.ts:303`（`Local branch "master" already exists; select it explicitly instead of remote "origin/master"`）——本地 `master` 与 `origin/master` 是同一条记录的两行，Host 拒绝执行 `git switch --track -c master refs/remotes/origin/master`（Git 本身也会拒绝重名）。新增 `src/client/chips/branch-list.ts` 的 `selectableBranches`：远程行的短名（`remoteCheckoutName`，即第一个斜杠之后的部分，与 Host 的取短名逻辑一致）已被本地分支占用时，或本地已存在完全同名分支时，该远程行不再渲染。**没有本地对应的远程分支仍然保留**——fetch 之后检出队友的分支正是这条路径唯一的用途。过滤只作用于浮层列表，Host 的 `branches()` 与 agent 工具仍返回完整引用列表，`src/host/git-service.ts:303` 的守卫保持原样以防直接 API 调用。
+- 新增回归 `tests/client-branch-list.test.mjs`（7 条）：重复远程行被丢弃、短名被占用的远程行被丢弃、无本地对应的远程行保留、本地分支恰好叫 `origin/topic` 时保留自己的行、过滤后顺序与 current 标记不变、纯本地列表原样返回。
+
+## 第七轮截图反馈（历史点了没反应、外部编辑器选择）
+
+- **「更多操作 → 历史」看起来没反应，其实是渲染到了可视区之外**：面板模式下 `FileInspectDialog` 不是遮罩——`src/client/dialogs/DialogShell.tsx:8` 读 `GitPanelContext`，只有 `src/client/panels/GitSidebarPanel.tsx:126` 提供 `true`，而工作台也走这条路径，于是它渲染成内联的 `<section class="dsh-git-panel-form">`。原实现把它放在 `.dsh-git-changes-panel` 的最后一个子节点（提交框之后），而工作台的 `.dsh-git-view-content` 是滚动容器、`.dsh-git-changes-body` 又是固定高度，表单就被追加到视口之外；窄侧栏里则被 `overflow:hidden` 裁掉。现在 `src/client/diff/ChangesTab.tsx:570` 在 `inspectFile` 有值时让检查器**占据 `.dsh-git-changes-body` 槽位**（替换文件列表 + diff 两栏），关闭即回到 diff，提交框始终是最后一个子节点；`src/client/styles.ts` 追加 `.dsh-git-changes-body > .dsh-git-panel-form`（填充、`height:100%`、自身滚动）三条 workbench 覆盖。TESTING.md:181 的「表单在面板中不使用遮罩」约定不变。
+- **「在编辑器中打开」不再落进 Windows「打开方式」弹窗**：宿主的探测链在 PATH 上找不到候选 CLI 时会 `openWithoutEditor`（DSH opener → `cmd /d /s /c start`），机器上没有任何编辑器 CLI 时点击就变成系统弹窗。现在按钮改为应用内浮层 `src/client/editor-menu.tsx`：打开时向新路由 `POST /dsh-git/editors` 询问本机真实可用的编辑器，列出「编辑器名 + 命令」与「系统默认应用」，并把选择显式传回宿主 `editor.open(target, editor)`。
+  - `SYSTEM_EDITOR = 'system'`：选择系统默认时**不探测**，即使机器上装了编辑器 CLI 也仍然走系统关联。
+  - 显式选择不回退：名字不在候选里报「找不到编辑器：X」，命令解析不到报「找不到编辑器：X（命令行不在 PATH 中）」；配置了 `DSH_GIT_EDITOR` 时它成为唯一候选，其它选择被明确拒绝。
+  - 探测失败（`listEditors` 抛错）在浮层内以 `role="alert"` 显示，并保留「系统默认应用」；关闭再打开即重试。没有编辑器 CLI 时提示「没有检测到编辑器命令行」。
+  - 同一个浮层也用在 `src/client/dialogs/FileInspectDialog.tsx` 的历史页工具栏，所以两处行为一致。
+- **顺带修掉一个真实缺陷**：探测 effect 最初把 `probing` 放进依赖数组，React 会在它变成 `true` 时先执行上一次的清理函数（`cancelled = true`），结果列表永远到不了、浮层一直停在「正在检测…」。现在依赖只有 `[open, editors]`，失败时保留 `null` 以便重开重试。
+- 新增/改写回归：`tests/editor-menu.test.mjs`（10 条，用桩 `gitApi` 驱动真实组件：只列出探测到的编辑器、按下的是哪一个就发哪一个、system 项、无 CLI 提示、宿主拒绝原因、请求抛错、探测失败可重试、每次打开只探测一次、请求进行中禁用按钮）；`tests/editor-launcher.test.mjs` 新增 9 条（`listEditors` 顺序/空列表/`DSH_GIT_EDITOR` 唯一候选、显式选择不回退、未知名字、PATH 缺失、`DSH_GIT_EDITOR` 拒绝其它选择、system 不探测、仓库外路径仍被拒）；`tests/routes.test.mjs` 新增 4 条（`/editors` 不需要仓库、选择透传、非法 `editor` 400、探测失败 500）；`tests/client-api.test.mjs` 新增 2 条；`tests/client-diff-state.test.mjs` 改写 2 条编辑器用例并新增「历史占据变更主体、提交框仍是最后一个子节点」1 条。
+- 结果：`pnpm run typecheck` 通过；`pnpm test` 198 条 / 197 通过 / 1 跳过 / 0 失败；`pnpm run build` 成功。**本轮改了 Host（`src/host/editor-launcher.ts`、`src/host/routes.ts`）**，新路由 `/dsh-git/editors` 需要完整重启 DSH Desktop 才会加载；只改客户端部分时刷新页面即可。
+
+## 第八轮截图反馈（识别不到编辑器、文件历史的提交点了没反应）
+
+- **编辑器列表是空的，可机器上确实装了编辑器**：探测原先只看 PATH（`where code`）。**VS Code 的用户安装版默认不往 PATH 写任何东西**，它的命令行 shim 在 `%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd`；本机实测 `code` / `code-insiders` / `cursor` / `windsurf` / `zed` / `subl` 全部不在 PATH 上，而该 shim 存在——于是浮层只剩「系统默认应用」。
+  - `src/host/editor-launcher.ts` 的候选表为每个编辑器补上**常见安装位置**（win32 / darwin / linux 三套；`%NAME%` 与开头的 `~` 会展开），新增 `locate()`：先 PATH、再常见位置。PATH 命中优先，所以用户自己的 shim 不会被忽略；模板里若还残留未展开的 `%...%`（环境变量缺失）就视为无效，绝不会把字面量当路径。
+  - `DSH_GIT_EDITOR` 现在也接受**绝对路径**，用于安装程序从未注册过的编辑器；`EditorChoice` 的 `command` 仍原样回传，显式选择照旧不回退。
+  - 找不到时的文案改为「找不到编辑器：X（命令不在 PATH 中，也不在常见安装位置）」。
+- **文件历史的提交行是按钮却点了没反应**：行的 `onClick` 只调用可选的 `onOpenCommit?.()`，而 `src/client/diff/ChangesTab.tsx` 构造 `FileInspectDialog` 时没有传这个 prop（提交详情只在提交记录页里接上了），点击因此被静默丢弃。
+  - 下钻改由对话框自己承担：`src/client/dialogs/FileInspectDialog.tsx` 点行后让历史列表**原位**让位给该提交的详情——复用 `SelectedCommitDetails` + 懒加载 `CommitDetailDialog` 分片，分片加载失败时显示错误与「重试加载详情」。
+  - `SelectedCommitDetails` 新增可选 `showBackButton`（默认 `false`，提交记录页维持原有行为）；文件历史下钻传 `true`，详情顶部因此有「返回」，回到的是同一份文件历史。
+  - 下钻以**文件**为键：对话框被复用去显示另一个文件时不会残留上一个文件的提交；切换「历史 / 责任」页签也会清掉下钻。`onOpenCommit` 仍照常回调，嵌入方不受影响。
+- 回归：`tests/file-history-drill.test.mjs`（新，6 条：列表在未下钻时正常、点行后列表让位且分片加载完成、返回回到同一份历史、切页签清空下钻、换文件不残留、分片失败给出重试）；`tests/editor-launcher.test.mjs` 新增 6 条（常见位置命中、PATH 优先、`listEditors` 与选择值一致、未展开占位符不算路径、`DSH_GIT_EDITOR` 绝对路径、其它平台不匹配 Windows 位置），并给所有假 launcher 补上 `pathExists: () => false` 以保持密闭；`tests/history-detail-render.test.mjs` 新增 1 条（嵌套详情带「返回」）。
+- 本机实测（PATH 上没有 `code`）：`createEditorLauncher().listEditors()` → `[{ command: 'code', label: 'VS Code', goto: true }]`。全量 `pnpm test` 211 条 / 210 通过 / 1 跳过 / 0 失败；`pnpm run typecheck` 与 `pnpm run build` 通过。
+- **本轮再次改了 Host（`src/host/editor-launcher.ts`）**，需要完整重启 DSH Desktop 才会用上新的探测逻辑。
+
+## 第九轮截图反馈（浮层里只认得出 VS Code）
+
+- **症状**：上一轮的「常见安装位置」只覆盖按固定路径安装的产品，机器上装的 JetBrains 系列（IntelliJ IDEA、WebStorm、CLion、DataGrip）一个都没出现，浮层里孤零零一项 VS Code——而 Windows 的「打开方式」里明明列着 IntelliJ IDEA 和 WebStorm。
+- **根因**：JetBrains 的安装路径带产品名但不带版本（`%LOCALAPPDATA%\Programs\IntelliJ IDEA\bin\idea64.exe`），Toolbox 还要再深三层（`…\JetBrains\Toolbox\apps\<产品>\<渠道>\<构建>\bin\idea64.exe`），**任何固定清单都穷举不了下一个版本的目录名**，而上一轮只有固定清单 + PATH。本机实测：`idea` / `webstorm` / `clion` / `datagrip` 都不在 PATH，四个 `.exe` 都在 `%LOCALAPPDATA%\Programs\<产品>\bin\` 下。
+- **修法**：`src/host/editor-launcher.ts` 增加**目录遍历式探测**：候选可以带 `discovery: { roots, patterns }`，`patterns` 以 `/` 分隔、`*` 匹配一层目录，于是「产品目录 / Toolbox 三层嵌套 / macOS 的 `X.app/Contents/MacOS/x`」各用一条模式描述；遍历时逐层 `pathExists`，版本号变了也照样命中（同级多个版本按数字倒序，新版本优先）。
+  - 新增 JetBrains 产品表（IntelliJ IDEA、WebStorm、PyCharm、PhpStorm、GoLand、CLion、Rider、DataGrip、RubyMine、Android Studio），共用同一套 Toolbox 布局；参数风格新增 `jetbrains`（`--line <n> <路径>`），因为 JetBrains 既不认 `-g`，也不认 `路径:行号`。
+  - 探测顺序仍是 PATH → 固定位置 → 目录遍历；PATH 命中优先，用户自己的 shim 依然不被忽略。同一产品装两遍（独立安装 + Toolbox）只列一次。
+  - `DSH_GIT_EDITOR` 指向某个已知产品的真实二进制（如 `…\bin\idea64.exe`）时会**继承该产品的参数风格**，不再退回 `路径:行号`。
+- 本机实测（PATH 上什么都没有）：`listEditors()` → `VS Code / IntelliJ IDEA / WebStorm / CLion / DataGrip`，与 `%LOCALAPPDATA%\Programs` 下实际安装的一致。
+- 回归：`tests/editor-launcher.test.mjs` 新增 5 条（`Programs\<产品>\bin` 命中、Toolbox 三层命中、JetBrains 选择收到 `--line`、macOS `.app` 命中、`DSH_GIT_EDITOR` 指向真实二进制仍用 `--line`），并给所有假 launcher 补 `listDirectory` 以保持密闭。全量 `pnpm test` 216 条 / 215 通过 / 1 跳过 / 0 失败；`pnpm run typecheck` 与 `pnpm run build` 通过。
+- **本轮再次改了 Host（`src/host/editor-launcher.ts`）**，需要完整重启 DSH Desktop。
+
+## 第十轮截图反馈（探测太慢、选项没有图标）
+
+- **症状**：浮层打开后停在「正在检测已安装的编辑器…」数秒（本机 8–10 秒）才出结果，期间只有「系统默认应用」一项；同时用户要求每一项显示图标。
+- **根因（探针实测，两层）**：
+  - 每个候选都 spawn 一次平台查找器（`where code` / `where idea`）≈150ms，16 个候选就是约 2.4 秒——但只解释一部分：把这些换成进程内扫 PATH 后仍有 7.2–7.9 秒。
+  - 真正的元凶是**深层通配套在大根目录上**：`*/*/*/bin/<exe>` 这类三层模式会对每个候选整棵遍历 `%LOCALAPPDATA%\Programs`，未安装的产品也不得不走完。实测单个未安装产品 = 511ms / 325 次目录列举 / 3142 次存在性检查；JetBrains 表里没装的六个产品再加上 `%ProgramFiles%\Android` 等根，合计约 7 秒。文件系统本身很快（`readdir` 全部 PATH 目录 23ms、`existsSync` 6 个名字 × 56 目录 48ms），是模式设计放大了成本。
+- **修法**（`src/host/editor-launcher.ts`）：
+  - PATH 查找改为进程内扫描（新导出 `findOnPath(command, { env, platform, listDirectory, isExecutable })`）：**每个 PATH 目录只列举一次**，按 `.exe` → `.cmd` → `.bat` → `PATHEXT` → 无扩展名 的顺序匹配，同一后缀内更早的 PATH 目录优先（用户自己的 shim 不被后来的安装遮住），POSIX 还要求可执行位；命令本身含路径分隔符时不查 PATH。删掉了 `execFile` + `promisify`。
+  - 候选探测并发执行（`detect()` 用 `Promise.all`），并把本次探测内的目录列举结果缓存（多个 JetBrains 产品走同一批根目录，只读一次）。
+  - 探测结构从「所有根 × 所有模式」改为「每个根只配它下面真会出现的模式」（`discovery: { locations: { win32: [{ root, patterns }] } }`）：三层通配只留在 Toolbox 这种固定层级上。
+  - 图标（第二轮返工）：画出来的标记不是「软件的图标」，所以改成**读取真正的应用图标**。Windows 每个可执行文件自带图标资源（PE 资源），Node 读不了，于是 `src/host/app-icons.ts` 用一次 `powershell.exe -EncodedCommand` 批量调用 `[System.Drawing.Icon]::ExtractAssociatedIcon`，把结果作为 PNG data URL 放进 `EditorChoice.icon`——浮层显示的与资源管理器「打开方式」里的图标是同一个。图标只在 Windows 上取（其它平台没有该 API），读不到时保留客户端画的标记，所以永远不会出现空格子。`.cmd`/`.bat` shim 不是应用本身（`code.cmd` 带的是控制台图标），会按同名词干向上找 `Code.exe`（最多三层）再取图标。图标按可执行文件路径缓存在宿主的 launcher 实例里，并且在启动时**后台预热**：用户打开浮层时图标已在缓存中（预热实测约 0.7s，之后 `listEditors()` 仍是 ~150ms）。批处理是串行的，预热与手动打开不会重复起第二次 shell。
+  - 客户端仍有 `src/client/editor-icons.tsx` 作为回退：VS Code / Insiders 内嵌官方缎带矢量（`fillRule="evenodd"`）、JetBrains 与 Cursor / Zed / Sublime / Windsurf 用品牌色方块、认不出来的编辑器用主题色调字母块。品牌色属于**产品身份**而不是主题决定，因此 `tests/theme.test.mjs` 显式豁免这一个文件，其余 `src/client` 依然只允许主题令牌。
+  - 同时修掉两个显示缺陷：标记曾被 `.dsh-git-editor-option > span { flex: 1 }` 一起拉成整条横杠（补更高优先级的 `flex: 0 0 auto` 规则），浮层宽度由 230px 放宽到 268px，「IntelliJ IDEA」不再被截断。
+  - CSS 注释里不能出现反引号：`src/client/styles.ts` 的样式是模板字符串，注释中的反引号会直接终止模板（`TS1005`）。
+- 实测对比：`listEditors()` 由 8563ms / 10300ms 降到 **181ms / 97ms / 99ms**（约 85 倍），结果不变（VS Code、IntelliJ IDEA、WebStorm、CLion、DataGrip）。
+- 回归：`tests/editor-launcher.test.mjs` 43 条（新增 5 条 PATH 查找：`.exe` 优先于 `.cmd`、更早的 PATH 目录优先、命令本身是路径时不查 PATH、POSIX 可执行位、端到端经 PATH 命中且不起查找进程；另有 2 条图标：拿到的图标随条目返回、读不到时条目仍在且不带空格子）；`tests/app-icons.test.mjs` 3 条（排除 console 脚本、shim 向上找应用、单次 shell 服务整批 + 缓存 + 失败只损失图标）；`tests/editor-menu.test.mjs` 13 条（真实图标优先于画出来的标记、未知命令的字母与色调稳定）。全量 `pnpm test` **229 条 / 228 通过 / 1 跳过 / 0 失败**；`pnpm run typecheck` 与 `pnpm run build` 通过。
+- **本轮又改了 Host（`src/host/editor-launcher.ts`）**，需要完整重启 DSH Desktop。
+
+## 第十一轮截图反馈（分支浮层的排版）
+
+- **症状**：分支浮层里「已获取远程更新」竖排成一条贴在右边缘的文字；分支行下面留出一大块空白，浮层显得又高又空。
+- **根因（两个独立的 CSS 问题）**：
+  - 同步结果 `{notice && <div className='dsh-git-changes-notice'>}` 写在 `.dsh-git-popover-actions` **里面**，那一行是 `display: flex` 且三个按钮各占 `flex: 1`，结果文字只剩十几像素宽，每个字单独折行——视觉上就成了竖排。
+  - `.dsh-git-branch-list` 用了 `flex: 1`（`flex-basis: 0`）在定高容器里抢空间，配合 `max-height: 240px`，于是只有一两个分支时也撑满 240px 的空白框。
+- **修法**：
+  - 同步结果改为 `.dsh-git-popover-notice`，渲染在分支列表与按钮行**之间**，独占整行（`margin: 6px 10px 0`、`overflow-wrap: anywhere`、成功态用 `state-success-primary` 令牌），按钮行里只剩三个按钮；错误提示同理改为 `.dsh-git-popover-error`（原来的内联 `fontSize/padding` 收进样式表）。
+  - `.dsh-git-branch-list` 改成 `flex: 0 1 auto; min-height: 0`：列表按内容高度收缩，分支多时仍在 240px 处滚动。
+- **回归**：新增 `tests/branch-popover-layout.test.mjs`（2 条：真实渲染浮层并断言三个同步按钮与页脚入口；按钮行里不得出现 `notice`、同步结果必须是 `dsh-git-popover-notice`，以及样式表里 `flex: 0 1 auto` 与整行位置的规则仍在）。全量 `pnpm test` **231 条 / 230 通过 / 1 跳过 / 0 失败**；`pnpm run typecheck` 与 `pnpm run build` 通过。
+- 视觉自检：用 `sheetText()` 把**真实样式表**注入预览页（自带主题令牌），headless Edge 截图为 `%TEMP%\popover-preview.png`，确认列表贴合内容、绿色提示占满一行、按钮均匀分布。
+- 只改了客户端（`BranchPopover.tsx` / `styles.ts`），刷新页面即可；Host 无改动，但上一轮的真图标仍需完整重启 DSH Desktop。
+
 ## 需要人工完成的界面验收
 
 当前工具没有已登录页面的浏览器交互/截图控制能力；自动测试不等于真实页面、焦点或主题验收。
@@ -219,5 +294,14 @@ node --check lib/client.js
 5. 创建 Worktree 后应实际打开该路径的工作区会话。若打开失败，应显示已创建路径，并可重试打开，不重复创建目录。
 6. 在临时 Worktree 中留下未提交文件再删除：应该拒绝、显示错误且文件保留。锁定工作树的删除按钮应禁用。
 7. 浅色/深色各检查分支浮层、创建对话框、变更面板、错误提示与增删行；检查窗口窄屏时浮层位置和滚动。
+8. 分支浮层：与上游完全同步时不再出现「领先 0 个提交，落后 0 个提交」；与本地同名的远程分支（已有本地 `master` 时的 `origin/master`）不再出现，而 `git fetch` 后新增的、无本地对应的远程分支仍能点击检出；有储藏时储藏徽标仍显示。
+9. 变更面板点「更多操作 → 历史」：历史/责任视图应立刻占据变更面板主体（工作台里不需要滚动就能看到，窄侧栏里也不被裁切），关闭后回到原来的文件列表 + diff；提交框始终贴在面板最下方。
+10. 点「在编辑器中打开」：应先展开应用内浮层，列出本机真实探测到的编辑器（名称 + 命令）与「系统默认应用」；选某个编辑器就用它打开，选「系统默认应用」才走系统关联。机器上没有任何编辑器 CLI 时，浮层应明确说明并保留「系统默认应用」项；diff 头部与历史对话框工具栏这两处浮层行为一致。
+11. 编辑器没有加入 PATH 的机器（VS Code 用户安装版默认如此）：浮层里仍应列出该编辑器，选中后能用它打开当前文件并定位到行；PATH 里的同名 shim 优先于常见安装位置；`DSH_GIT_EDITOR` 设为绝对路径时，浮层只列这一个。
+12. 变更面板 →「更多操作 → 历史」：点任意一条提交，历史列表应**原位**换成该提交的详情（顶部有「返回」回到同一份文件历史）；切换「历史 / 责任」页签或换一个文件后，不应残留上一条提交的详情；详情分片加载失败时显示错误与「重试加载详情」。
+13. 浮层应列出机器上**实际装着**的编辑器：Windows 上装了 JetBrains 系列时（`%LOCALAPPDATA%\Programs\<产品>\bin`，Toolbox 安装则在 `…\JetBrains\Toolbox\apps` 下）应一并列出 IntelliJ IDEA / WebStorm 等；选 JetBrains 打开带行号的文件时用 `--line <n> <路径>` 定位；同一产品装两遍只出现一次。
+14. 点开编辑器浮层应立即出结果（本机实测：重启后第一次即 ~150ms，图标在宿主启动时已后台预热），不再长时间停在「正在检测已安装的编辑器…」；每一项左侧是**该软件自己的图标**，应与 Windows「打开方式」里看到的一致（VS Code 蓝色的 X 缎带、IntelliJ IDEA / WebStorm / CLion / DataGrip 各自的彩色标记），图标不被拉伸成横条、不被截断；宿主读不到图标时才退回画出来的标记，「系统默认应用」是文档图标。
+15. 探测不应拖慢面板：反复打开、关闭浮层不应有卡顿；PATH 很长或装了多个 JetBrains 产品时也应同样快（探测结果在组件内缓存，同一次会话只问宿主一次）。
+16. 分支浮层排版：分支只有一两个时列表贴合内容，不再留一大块空白；点「获取/拉取/推送」后的结果（如「已获取远程更新」）应**独占一整行横排**显示，不能竖排或贴在右边缘；长输出换行而不撑破浮层；错误提示同样占整行且带凭据提示。
 
 这些人工步骤不需要在真实项目上尝试危险参数或强制删除。

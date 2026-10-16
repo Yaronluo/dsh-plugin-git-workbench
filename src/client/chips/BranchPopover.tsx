@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import type { BranchesView, RepoStatus } from '../../core/types.js'
 import { gitApi } from '../api.js'
+import { selectableBranches } from './branch-list.js'
 import { IconBranch, IconBranchPlus, IconCheck, IconCloudRefresh, IconHistory, IconPull, IconPush, IconSearch, IconFolderTree } from '../icons.js'
 
 export interface BranchPopoverProps {
@@ -41,14 +42,18 @@ export function BranchPopover({
   const [notice, setNotice] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
+    const selectable = selectableBranches(view.branches)
     const q = query.trim().toLowerCase()
-    if (!q) return view.branches
-    return view.branches.filter(b => b.name.toLowerCase().includes(q))
+    if (!q) return selectable
+    return selectable.filter(b => b.name.toLowerCase().includes(q))
   }, [view.branches, query])
 
   const currentBranch = view.branches.find(branch => branch.name === view.current)
   const ahead = status?.ahead ?? currentBranch?.ahead
   const behind = status?.behind ?? currentBranch?.behind
+  // 0/0 means the branch is level with its upstream. Printing "领先 0 个提交，落后 0 个提交"
+  // spends a whole row saying nothing, so only real divergence earns the line.
+  const diverged = (ahead ?? 0) > 0 || (behind ?? 0) > 0
   const credentialHint = error && /credential|authentication|authorization|username|password|凭据|认证|密码|登录|401|403/i.test(error)
 
   const handleSwitch = async (branchName: string) => {
@@ -108,8 +113,8 @@ export function BranchPopover({
           />
         </div>
 
-        {(ahead !== undefined || behind !== undefined || (status?.stashCount || 0) > 0) && <div className='dsh-git-muted'>
-          {ahead !== undefined || behind !== undefined
+        {(diverged || (status?.stashCount || 0) > 0) && <div className='dsh-git-muted'>
+          {diverged
             ? <span>{`领先 ${ahead ?? 0} 个提交，落后 ${behind ?? 0} 个提交`}</span>
             : null}
           {(status?.stashCount || 0) > 0 && <span className='dsh-git-badge'>储藏 {status?.stashCount}</span>}
@@ -117,7 +122,7 @@ export function BranchPopover({
 
         {view.dirtyFiles > 0 && <div className='dsh-git-dirty-warning'>未提交的更改: {view.dirtyFiles} 个文件</div>}
 
-        {error && <div role='alert' className='dsh-git-error' style={{ fontSize: 12, padding: '4px 12px' }}>
+        {error && <div role='alert' className='dsh-git-error dsh-git-popover-error'>
           {error}
           {credentialHint && <div className='dsh-git-muted'>需要凭据或网络不可达时，请在终端里手动执行一次</div>}
         </div>}
@@ -151,6 +156,11 @@ export function BranchPopover({
           )}
         </div>
 
+        {/* The sync result belongs to the whole popover, not to the button row: inside the row it
+            was squeezed into whatever width the three buttons left over and wrapped one character
+            per line. */}
+        {notice && <div className='dsh-git-popover-notice' role='status'>{notice}</div>}
+
         <div className='dsh-git-popover-actions'>
           <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='获取远程更新' disabled={!!syncing || !!switching} aria-busy={syncing === 'fetch'} onClick={() => void handleSync('fetch')}>
             <IconCloudRefresh size={15} />{syncing === 'fetch' ? '获取中…' : '获取'}
@@ -161,7 +171,6 @@ export function BranchPopover({
           <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='推送本地提交' disabled={!!syncing || !!switching} aria-busy={syncing === 'push'} onClick={() => void handleSync('push')}>
             <IconPush size={15} />{syncing === 'push' ? '推送中…' : '推送'}
           </button>
-          {notice && <div className='dsh-git-changes-notice' role='status'>{notice}</div>}
         </div>
 
         <div className='dsh-git-footer'>

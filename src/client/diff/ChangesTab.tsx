@@ -3,7 +3,7 @@ import type { ConflictFile, DiffFile, DiffView } from '../../core/types.js'
 import { gitApi, errorMessage, blobUrl } from '../api.js'
 import {
   IconArrowDown, IconArrowUp, IconBranch, IconCheck, IconChevronDown, IconChevronUp, IconClose, IconColumns,
-  IconCommit, IconCopy, IconDiff, IconExternalLink, IconFile, IconFolderTree, IconHistory, IconImage, IconMinus,
+  IconCommit, IconCopy, IconDiff, IconFile, IconFolderTree, IconHistory, IconImage, IconMinus,
   IconPlus, IconRefresh, IconSparkle, IconStash, IconTrash, IconUndo, IconWarning,
 } from '../icons.js'
 import { buildCommitPrompt, buildContextText, buildExplainPrompt, buildReviewPrompt, deliverPrompt } from '../agent-bridge.js'
@@ -11,6 +11,7 @@ import type { PromptContext } from '../agent-bridge.js'
 import { useWorkspaceCwd } from '../cwd-resolver.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
 import { GitLoadingState } from '../loading-state.js'
+import { OpenInEditorMenu } from '../editor-menu.js'
 import { FileInspectDialog } from '../dialogs/FileInspectDialog.js'
 import { buildSections, canPreviewImage, commitProblem, indexSummary, statusLetter, statusTone, toChangeEntries } from './change-sections.js'
 import type { ChangeRow } from './change-sections.js'
@@ -202,18 +203,6 @@ export function ChangesTab(props: any) {
     }).catch(() => { /* an empty box is a usable fallback */ })
     return () => { cancelled = true }
   }, [amend, cwd])
-
-  const openInEditor = async (file: string) => {
-    setEditorNotice(null)
-    try {
-      const outcome = await gitApi.openInEditor(cwd, file)
-      setEditorNotice(outcome.ok
-        ? { ok: true, text: `${outcome.editor ? `已用 ${outcome.editor} 打开` : '已用系统默认应用打开'}：${outcome.target || file}` }
-        : { ok: false, text: outcome.error || '无法打开外部编辑器' })
-    } catch (error) {
-      setEditorNotice({ ok: false, text: errorMessage(error) })
-    }
-  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -576,6 +565,9 @@ export function ChangesTab(props: any) {
           ? '切换上方的范围可以查看另一侧的差异。'
           : compareTarget === 'working-head' ? '暂无未提交的更改，新的变更会显示在这里。' : '当前分支与上游之间没有文件差异。'}</p>
       </div> : <div className="dsh-git-changes-body">
+        {/* File history/blame takes over both columns: appended below the commit form it
+            landed outside the visible area of the workbench, which read as "no reaction". */}
+        {inspectFile ? <FileInspectDialog path={cwd} file={inspectFile} onClose={() => setInspectFile(null)} /> : <>
         {/* Left column: grouped changes stay beside the wide diff viewer. */}
         <div className="dsh-git-changes-side">
           <div
@@ -670,10 +662,7 @@ export function ChangesTab(props: any) {
                     onClick={() => copyText('补丁', activeFile.rawPatch ?? '')}><IconDiff size={13} /><span>复制补丁</span></button>
                     </div>
                   </details>
-                  {activeFile.status !== 'deleted' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-open-editor"
-                    title="在外部编辑器中打开这个文件" onClick={() => openInEditor(activeFile.path)}>
-                    <IconExternalLink size={13} /><span>在编辑器中打开</span>
-                  </button>}
+                  {activeFile.status !== 'deleted' && <OpenInEditorMenu repo={cwd} file={activeFile.path} onNotice={setEditorNotice} />}
                 </div>
               </div>
 
@@ -789,6 +778,7 @@ export function ChangesTab(props: any) {
             <div className="dsh-git-diff-placeholder">选择左侧文件以查看代码差异</div>
           )}
         </div>
+        </>}
       </div>}
 
       {diffView && diffView.files.length > 0 && <section className="dsh-git-commit-box" aria-label="提交更改">
@@ -854,8 +844,6 @@ export function ChangesTab(props: any) {
         </div>
         </div>
       </section>}
-
-      {inspectFile && <FileInspectDialog path={cwd} file={inspectFile} onClose={() => setInspectFile(null)} />}
     </div>
   )
 }

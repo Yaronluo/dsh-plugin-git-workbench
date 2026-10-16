@@ -43,6 +43,30 @@ test('API network failure does not repeat a possibly completed operation', async
   assert.equal(calls, 1)
 })
 
+test('the editor picker asks the host for real editors and sends the chosen one', async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push([url, JSON.parse(options.body)])
+    if (url === '/dsh-git/editors') return new Response(JSON.stringify({ ok: true, value: [{ command: 'code', label: 'VS Code', goto: true }] }), { status: 200 })
+    return new Response(JSON.stringify({ ok: true, editor: 'VS Code', target: 'src/a.ts' }), { status: 200 })
+  })
+  assert.deepEqual(await gitApi.listEditors(), [{ command: 'code', label: 'VS Code', goto: true }])
+  assert.deepEqual(await gitApi.openInEditor('D:/repo', 'src/a.ts', 12, 'code'), { ok: true, editor: 'VS Code', target: 'src/a.ts' })
+  assert.deepEqual(await gitApi.openInEditor('D:/repo', 'src/a.ts', undefined, 'system'), { ok: true, editor: 'VS Code', target: 'src/a.ts' })
+  assert.deepEqual(calls, [
+    ['/dsh-git/editors', {}],
+    ['/dsh-git/open-in-editor', { path: 'D:/repo', file: 'src/a.ts', line: 12, editor: 'code' }],
+    ['/dsh-git/open-in-editor', { path: 'D:/repo', file: 'src/a.ts', editor: 'system' }], // JSON omits the undefined line
+  ])
+})
+
+test('without a chosen editor the request keeps probing on the host', async t => {
+  const bodies = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => { bodies.push(JSON.parse(options.body)); return new Response(JSON.stringify({ ok: true, editor: 'VS Code', target: 'src/a.ts' }), { status: 200 }) })
+  await gitApi.openInEditor('D:/repo', 'src/a.ts')
+  assert.deepEqual(bodies, [{ path: 'D:/repo', file: 'src/a.ts' }])
+})
+
 test('EventSource construction failure is reported without crashing the component effect', t => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'EventSource')
   Object.defineProperty(globalThis, 'EventSource', { configurable: true, value: class { constructor() { throw new Error('SSE unavailable') } } })
