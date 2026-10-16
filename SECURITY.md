@@ -6,7 +6,7 @@
 
 ## 私密报告漏洞
 
-请通过 GitHub 的 [Report a vulnerability](https://github.com/Yaronluo/dsh-plugin-git/security/advisories/new) 提交私密报告。若入口不可用，请查看维护者 [GitHub 主页](https://github.com/Yaronluo) 的最新联系方式；不要在公开 Issue 中披露尚未修复的漏洞细节或利用代码。
+请通过 GitHub 的 [Report a vulnerability](https://github.com/Yaronluo/dsh-plugin-git-workbench/security/advisories/new) 提交私密报告。若入口不可用，请查看维护者 [GitHub 主页](https://github.com/Yaronluo) 的最新联系方式；不要在公开 Issue 中披露尚未修复的漏洞细节或利用代码。
 
 请尽可能包含受影响版本、复现条件、潜在影响以及使用临时仓库的最小复现。移除访问令牌、私有代码及个人信息。项目由社区维护，暂不承诺固定响应时限。
 

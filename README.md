@@ -7,12 +7,12 @@
 分支切换 · 变更审查 · 提交记录 · 储藏管理 · 多工作树 · AI 草稿协作
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/Yaronluo/dsh-plugin-git/actions/workflows/ci.yml/badge.svg)](https://github.com/Yaronluo/dsh-plugin-git/actions/workflows/ci.yml)
+[![CI](https://github.com/Yaronluo/dsh-plugin-git-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/Yaronluo/dsh-plugin-git-workbench/actions/workflows/ci.yml)
 [![DSH Plugin](https://img.shields.io/badge/DeepSeek_Harness-Plugin-5865f2)](#安装)
 
 在对话里写代码，在同一个工作区里看懂、整理并提交改动。
 
-[快速开始](#安装) · [界面预览](#界面预览) · [参与贡献](CONTRIBUTING.md) · [反馈问题](https://github.com/Yaronluo/dsh-plugin-git/issues)
+[快速开始](#安装) · [界面预览](#界面预览) · [参与贡献](CONTRIBUTING.md) · [反馈问题](https://github.com/Yaronluo/dsh-plugin-git-workbench/issues)
 
 </div>
 
@@ -110,7 +110,7 @@ dsh plugin --profile desktop add dsh-plugin-git-workbench
 也可直接安装 GitHub Release 提供的预构建包：
 
 ```powershell
-dsh plugin --profile desktop add https://github.com/Yaronluo/dsh-plugin-git/releases/latest/download/dsh-plugin-git-workbench.tgz
+dsh plugin --profile desktop add https://github.com/Yaronluo/dsh-plugin-git-workbench/releases/latest/download/dsh-plugin-git-workbench.tgz
 ```
 
 其它 profile 请将 `desktop` 替换为实际名称。按宿主提示重启应用后使用。
@@ -120,8 +120,8 @@ dsh plugin --profile desktop add https://github.com/Yaronluo/dsh-plugin-git/rele
 开发和本地调试可使用以下方式：
 
 ```bash
-git clone https://github.com/Yaronluo/dsh-plugin-git.git
-cd dsh-plugin-git
+git clone https://github.com/Yaronluo/dsh-plugin-git-workbench.git
+cd dsh-plugin-git-workbench
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 ```
@@ -129,7 +129,7 @@ pnpm build
 然后将构建后的项目以本地 link 插件加入 DSH Desktop profile。将下面路径替换成你本机克隆目录的绝对路径：
 
 ```powershell
-dsh plugin --profile desktop add "link:D:\path\to\dsh-plugin-git"
+dsh plugin --profile desktop add "link:D:\path\to\dsh-plugin-git-workbench"
 ```
 
 其它 profile 请将 `desktop` 替换为实际名称。安装后按 DSH 提示重启应用，再打开 Git 仓库中的会话，查看 Git 页签与输入框上方的分支入口。

@@ -7,6 +7,15 @@ const root = new URL('../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
 const manifest = JSON.parse(read('package.json'))
 
+test('published repository metadata matches the unified GitHub and npm name', () => {
+  const repository = new URL(manifest.repository.url.replace(/^git\+/, ''))
+  assert.equal(repository.hostname, 'github.com')
+  const repoPath = repository.pathname.replace(/\.git$/, '').replace(/\/$/, '')
+  assert.equal(repoPath.split('/').at(-1), manifest.name)
+  assert.equal(new URL(manifest.homepage).pathname, repoPath)
+  assert.equal(new URL(manifest.bugs.url).pathname, `${repoPath}/issues`)
+})
+
 test('client bundle registers the package identity expected by the client loader', () => {
   const registrations = []
   // Observe the real built wrapper, without invoking the plugin factory or

@@ -17,8 +17,8 @@
 需要 Git、Node.js 24.2+ 和 pnpm 11。
 
 ```bash
-git clone https://github.com/Yaronluo/dsh-plugin-git.git
-cd dsh-plugin-git
+git clone https://github.com/Yaronluo/dsh-plugin-git-workbench.git
+cd dsh-plugin-git-workbench
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm typecheck
 pnpm test
