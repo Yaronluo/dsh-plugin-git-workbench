@@ -6,10 +6,11 @@ name: Release
 # author-supplied prebuilt Release tarball, before a full source download.
 #
 # Two assets are attached, both produced by `pnpm pack` (a standard npm
-# tarball, root `package/`, already buildable-free — `lib/` is committed):
-#   dsh-plugin-git-<version>.tgz  — pinned, for a versioned URL
-#   dsh-plugin-git.tgz            — version-less, so the catalog can point at
-#     releases/latest/download/dsh-plugin-git.tgz and keep working across
+# tarball, root `package/`, already buildable-free — `lib/` is committed).
+# Their names follow package.json, so a rename cannot leave them stale:
+#   <package-name>-<version>.tgz  — pinned, for a versioned URL
+#   <package-name>.tgz            — version-less, so the catalog can point at
+#     releases/latest/download/<package-name>.tgz and keep working across
 #     releases without editing the entry.
 #
 # A tag push (`v1.0.0`) is the normal trigger; a manual run releases whatever
@@ -68,10 +69,11 @@ jobs:
           fi
       - name: Pack
         run: |
-          pnpm pack
+          name="$(node -p "require('./package.json').name")"
           version="$(node -p "require('./package.json').version")"
-          mv "dsh-plugin-git-$version.tgz" "dsh-plugin-git.tgz"
-          cp "dsh-plugin-git.tgz" "dsh-plugin-git-$version.tgz"
+          pnpm pack
+          mv "$name-$version.tgz" "$name.tgz"
+          cp "$name.tgz" "$name-$version.tgz"
           ls -l ./*.tgz
       - name: Attach the tarballs to the release
         env:
