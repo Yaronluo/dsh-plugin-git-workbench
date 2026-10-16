@@ -1,0 +1,76 @@
+name: Release
+
+# Publishes the prebuilt package tarball on a GitHub Release, so storefronts
+# (dsh-market and the awesome-dsh-plugin catalog) can install it without a
+# build step: the market prefers a repo-verified npm package, then an
+# author-supplied prebuilt Release tarball, before a full source download.
+#
+# Two assets are attached, both produced by `pnpm pack` (a standard npm
+# tarball, root `package/`, already buildable-free — `lib/` is committed):
+#   dsh-plugin-git-<version>.tgz  — pinned, for a versioned URL
+#   dsh-plugin-git.tgz            — version-less, so the catalog can point at
+#     releases/latest/download/dsh-plugin-git.tgz and keep working across
+#     releases without editing the entry.
+#
+# A tag push (`v1.0.0`) is the normal trigger; a manual run releases whatever
+# version package.json currently declares.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and attach tarball
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Resolve and verify the release tag
+        id: meta
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "$tag" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package.json ($tag)" >&2
+            exit 1
+          fi
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      # The bundle ships inside the tarball, so a stale committed `lib/` would
+      # be published as if it were this source.
+      - name: Verify the committed bundle matches this source
+        run: git diff --exit-code -- lib
+      - name: Pack
+        run: |
+          pnpm pack
+          version="$(node -p "require('./package.json').version")"
+          mv "dsh-plugin-git-$version.tgz" "dsh-plugin-git.tgz"
+          cp "dsh-plugin-git.tgz" "dsh-plugin-git-$version.tgz"
+          ls -l ./*.tgz
+      - name: Attach the tarballs to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 ||
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" ./*.tgz --clobber
+          gh release view "$TAG" --json url,assets --jq '{url, assets: [.assets[].name]}'
