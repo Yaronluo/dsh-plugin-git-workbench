@@ -1,5 +1,5 @@
 {
-  "name": "dsh-plugin-git",
+  "name": "dsh-plugin-git-workbench",
   "version": "1.0.0",
   "description": "A community Git workbench for DeepSeek Harness: branches, diffs, commits, stashes, worktrees, and AI draft collaboration.",
   "license": "MIT",
@@ -11,6 +11,10 @@
   },
   "bugs": {
     "url": "https://github.com/Yaronluo/dsh-plugin-git/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "keywords": ["deepseek", "dsh", "git", "workbench", "worktree", "plugin"],
   "files": ["lib", "cordis.patch.yml", "README.md", "LICENSE"],
