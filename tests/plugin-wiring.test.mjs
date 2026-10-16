@@ -32,6 +32,9 @@ function repository() {
   const git = (...args) => execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_AUTHOR_NAME: 'Wiring Test', GIT_AUTHOR_EMAIL: 'wiring@example.com', GIT_COMMITTER_NAME: 'Wiring Test', GIT_COMMITTER_EMAIL: 'wiring@example.com' } })
   git('init', '-b', 'main')
   git('config', 'core.autocrlf', 'false')
+  // HTTP GitService calls do not inherit the helper's per-command author env.
+  git('config', 'user.name', 'Wiring Test')
+  git('config', 'user.email', 'wiring@example.com')
   writeFileSync(join(root, 'a.txt'), 'one\n')
   git('add', '-A')
   git('commit', '-m', 'first commit')

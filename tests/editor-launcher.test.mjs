@@ -72,7 +72,10 @@ test('opening the repository itself passes the directory, never a goto argument'
 
 test('a path outside the repository is refused instead of opening anything', async () => {
   const f = fixture()
-  for (const file of ['../secret.txt', '..\\secret.txt', resolve('D:/other/secret.txt')]) {
+  // Path resolution uses the host OS; backslashes are literal filename characters on POSIX.
+  const outside = ['../secret.txt', resolve('D:/other/secret.txt')]
+  if (process.platform === 'win32') outside.push('..\\secret.txt')
+  for (const file of outside) {
     const result = await f.launcher.open({ repo, file })
     assert.equal(result.ok, false, file)
     assert.match(result.error, /仓库内/)
