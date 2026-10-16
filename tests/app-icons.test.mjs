@@ -6,24 +6,27 @@ const { createAppIcons, iconSource } = await loadTs('src/host/app-icons.ts')
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUg=='
 
+/** The upward walk joins with the host separator, so compare the shape rather than the slash. */
+const slash = value => value?.replace(/\\/g, '/')
+
 test('an executable is its own icon source, a shim points at the application it starts', () => {
   assert.equal(iconSource('C:\\apps\\Code.exe', { fileExists: () => true }), 'C:\\apps\\Code.exe')
   assert.equal(iconSource('C:\\apps\\Code.exe', { fileExists: () => false }), undefined)
   // VS Code's user install ships a shim in bin\ and keeps the application one level up.
   assert.equal(
-    iconSource('C:\\Users\\me\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd', {
+    slash(iconSource('C:\\Users\\me\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd', {
       fileExists: () => true,
       listDirectory: directory => directory.endsWith('Microsoft VS Code') ? ['Code.exe', 'unins000.exe'] : [],
-    }),
-    'C:\\Users\\me\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
+    })),
+    slash('C:\\Users\\me\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe'),
   )
   // JetBrains shims do not exist, but a deep layout still has to be found within reach.
   assert.equal(
-    iconSource('C:\\tools\\bin\\nested\\webstorm.cmd', {
+    slash(iconSource('C:\\tools\\bin\\nested\\webstorm.cmd', {
       fileExists: () => true,
-      listDirectory: directory => directory === 'C:\\tools' ? ['WebStorm64.exe'] : [],
-    }),
-    'C:\\tools\\WebStorm64.exe',
+      listDirectory: directory => slash(directory) === 'C:/tools' ? ['WebStorm64.exe'] : [],
+    })),
+    slash('C:\\tools\\WebStorm64.exe'),
   )
   // A console script with no application behind it must not borrow the console's icon.
   assert.equal(iconSource('C:\\tools\\build.ps1', { fileExists: () => true }), undefined)

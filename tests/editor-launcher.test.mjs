@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import childProcess from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { syncBuiltinESMExports } from 'node:module'
@@ -13,6 +13,9 @@ const noIcons = { lookup: async () => [] }
 const createEditorLauncher = options => createLauncher({ appIcons: noIcons, ...options })
 
 const repo = resolve('D:/repo')
+
+/** The install walk joins with the host separator, so stubs compare the shape rather than the slash. */
+const samePath = (left, right) => left.replace(/\\/g, '/') === right.replace(/\\/g, '/')
 
 /** A launcher with no real process: detection, arguments and refusals are all visible. */
 function fixture({ available = ['code'], env = {}, fileExists = () => true, isDirectory = () => false, pathExists = () => false, listDirectory = () => [], platform = 'win32', appIcons = noIcons } = {}) {
@@ -377,8 +380,8 @@ test('a JetBrains IDE installed under Programs is found by walking the install r
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => directory === programsRoot ? ['IntelliJ IDEA', 'Notion', 'WebStorm'] : [],
-    pathExists: candidate => candidate === ideaBinary || candidate === webstormBinary,
+    listDirectory: directory => samePath(directory, programsRoot) ? ['IntelliJ IDEA', 'Notion', 'WebStorm'] : [],
+    pathExists: candidate => samePath(candidate, ideaBinary) || samePath(candidate, webstormBinary),
   })
   assert.deepEqual(await f.launcher.listEditors(), [
     { command: 'idea', label: 'IntelliJ IDEA', goto: false },
@@ -392,10 +395,10 @@ test('a Toolbox install is found through apps/<product>/<channel>/<build>', asyn
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => directory === toolbox ? ['IntelliJ IDEA']
-      : directory === `${toolbox}\\IntelliJ IDEA` ? ['ch-0']
-        : directory === `${toolbox}\\IntelliJ IDEA\\ch-0` ? ['242.20224.300'] : [],
-    pathExists: candidate => candidate === binary,
+    listDirectory: directory => samePath(directory, toolbox) ? ['IntelliJ IDEA']
+      : samePath(directory, join(toolbox, 'IntelliJ IDEA')) ? ['ch-0']
+        : samePath(directory, join(toolbox, 'IntelliJ IDEA', 'ch-0')) ? ['242.20224.300'] : [],
+    pathExists: candidate => samePath(candidate, binary),
   })
   assert.deepEqual(await f.launcher.listEditors(), [{ command: 'idea', label: 'IntelliJ IDEA', goto: false }])
 })
@@ -404,8 +407,8 @@ test('a JetBrains choice receives --line and the plain path, never the file:line
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => directory === programsRoot ? ['IntelliJ IDEA'] : [],
-    pathExists: candidate => candidate === ideaBinary,
+    listDirectory: directory => samePath(directory, programsRoot) ? ['IntelliJ IDEA'] : [],
+    pathExists: candidate => samePath(candidate, ideaBinary),
   })
   const result = await f.launcher.open({ repo, file: 'src/a.ts', line: 12 }, 'idea')
   assert.equal(result.ok, true)
@@ -443,7 +446,7 @@ test('a PATH lookup prefers a real executable over a batch shim, wherever they s
     env: { PATH: 'C:\\shims;C:\\apps' },
     listDirectory: directory => directory === 'C:\\shims' ? ['code', 'code.cmd'] : ['code.exe'],
   })
-  assert.equal(found, 'C:\\apps\\code.exe')
+  assert.equal(found, join('C:\\apps', 'code.exe'))
 })
 
 test('an earlier PATH directory wins among equals, so a user shim is not shadowed', () => {
@@ -452,7 +455,7 @@ test('an earlier PATH directory wins among equals, so a user shim is not shadowe
     env: { PATH: 'C:\\shims;C:\\apps' },
     listDirectory: () => ['code.cmd'],
   })
-  assert.equal(found, 'C:\\shims\\code.cmd')
+  assert.equal(found, join('C:\\shims', 'code.cmd'))
 })
 
 test('a command that is already a path is not looked up on PATH', () => {
@@ -488,6 +491,6 @@ test('the launcher finds an editor through PATH without spawning a finder proces
   })
   const result = await launcher.open({ repo, file: 'src/a.ts', line: 4 })
   assert.equal(result.editor, 'VS Code')
-  assert.deepEqual(launched, [['C:\\tools\\code.cmd', ['-g', `${resolve(repo, 'src/a.ts')}:4`]]])
+  assert.deepEqual(launched, [[join('C:\\tools', 'code.cmd'), ['-g', `${resolve(repo, 'src/a.ts')}:4`]]])
   assert.deepEqual(await launcher.listEditors(), [{ command: 'code', label: 'VS Code', goto: true }])
 })
