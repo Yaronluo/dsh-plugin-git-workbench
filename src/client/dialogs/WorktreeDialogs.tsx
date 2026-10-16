@@ -232,7 +232,7 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
                     <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void handleReveal(worktree.path)}><IconFolderTree size={15} />在文件管理器中显示</button>
                     {!worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' aria-expanded={lockTarget === worktree.path} disabled={!!busy} onClick={() => { setLockTarget(lockTarget === worktree.path ? null : worktree.path); setLockReason('') }}><IconWorktree size={15} />锁定</button>}
                     {worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void mutate(`unlock:${worktree.path}`, () => gitApi.unlockWorktree(path, worktree.path), '已解锁工作树')}><IconCheck size={15} />解锁</button>}
-                    {!worktree.isCurrent && pendingDelete !== worktree.path && <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy} onClick={() => { setForceDelete(false); setPendingDelete(worktree.path) }}><IconTrash size={15} />移除工作树</button>}
+                    {!worktree.isCurrent && pendingDelete !== worktree.path && <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy || !!worktree.locked} title={worktree.locked ? '已锁定的工作树需先解锁才能移除' : undefined} onClick={() => { setForceDelete(false); setPendingDelete(worktree.path) }}><IconTrash size={15} />移除工作树</button>}
                   </div>
                 </div>
                 {lockTarget === worktree.path && <div className='dsh-git-panel-toolbar'>
