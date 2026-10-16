@@ -14,9 +14,6 @@ const createEditorLauncher = options => createLauncher({ appIcons: noIcons, ...o
 
 const repo = resolve('D:/repo')
 
-/** The install walk joins with the host separator, so stubs compare the shape rather than the slash. */
-const samePath = (left, right) => left.replace(/\\/g, '/') === right.replace(/\\/g, '/')
-
 /** A launcher with no real process: detection, arguments and refusals are all visible. */
 function fixture({ available = ['code'], env = {}, fileExists = () => true, isDirectory = () => false, pathExists = () => false, listDirectory = () => [], platform = 'win32', appIcons = noIcons } = {}) {
   const launched = []
@@ -372,16 +369,18 @@ test('another platform never matches a Windows install location', async () => {
 
 // JetBrains products install under `%LOCALAPPDATA%\Programs\<product>\bin`, a layout no
 // fixed path can name: the folder is version-less, but only the installed products exist.
+// The expected paths are built with `join` exactly like the walk builds them, so these cases
+// hold on any host: only the separator differs.
 const programsRoot = 'C:\\Users\\me\\AppData\\Local\\Programs'
-const webstormBinary = `${programsRoot}\\WebStorm\\bin\\webstorm64.exe`
-const ideaBinary = `${programsRoot}\\IntelliJ IDEA\\bin\\idea64.exe`
+const webstormBinary = join(programsRoot, 'WebStorm', 'bin', 'webstorm64.exe')
+const ideaBinary = join(programsRoot, 'IntelliJ IDEA', 'bin', 'idea64.exe')
 
 test('a JetBrains IDE installed under Programs is found by walking the install root', async () => {
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => samePath(directory, programsRoot) ? ['IntelliJ IDEA', 'Notion', 'WebStorm'] : [],
-    pathExists: candidate => samePath(candidate, ideaBinary) || samePath(candidate, webstormBinary),
+    listDirectory: directory => directory === programsRoot ? ['IntelliJ IDEA', 'Notion', 'WebStorm'] : [],
+    pathExists: candidate => candidate === ideaBinary || candidate === webstormBinary,
   })
   assert.deepEqual(await f.launcher.listEditors(), [
     { command: 'idea', label: 'IntelliJ IDEA', goto: false },
@@ -391,14 +390,14 @@ test('a JetBrains IDE installed under Programs is found by walking the install r
 
 test('a Toolbox install is found through apps/<product>/<channel>/<build>', async () => {
   const toolbox = 'C:\\Users\\me\\AppData\\Local\\JetBrains\\Toolbox\\apps'
-  const binary = `${toolbox}\\IntelliJ IDEA\\ch-0\\242.20224.300\\bin\\idea64.exe`
+  const binary = join(toolbox, 'IntelliJ IDEA', 'ch-0', '242.20224.300', 'bin', 'idea64.exe')
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => samePath(directory, toolbox) ? ['IntelliJ IDEA']
-      : samePath(directory, join(toolbox, 'IntelliJ IDEA')) ? ['ch-0']
-        : samePath(directory, join(toolbox, 'IntelliJ IDEA', 'ch-0')) ? ['242.20224.300'] : [],
-    pathExists: candidate => samePath(candidate, binary),
+    listDirectory: directory => directory === toolbox ? ['IntelliJ IDEA']
+      : directory === join(toolbox, 'IntelliJ IDEA') ? ['ch-0']
+        : directory === join(toolbox, 'IntelliJ IDEA', 'ch-0') ? ['242.20224.300'] : [],
+    pathExists: candidate => candidate === binary,
   })
   assert.deepEqual(await f.launcher.listEditors(), [{ command: 'idea', label: 'IntelliJ IDEA', goto: false }])
 })
@@ -407,8 +406,8 @@ test('a JetBrains choice receives --line and the plain path, never the file:line
   const f = fixture({
     available: [],
     env: { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' },
-    listDirectory: directory => samePath(directory, programsRoot) ? ['IntelliJ IDEA'] : [],
-    pathExists: candidate => samePath(candidate, ideaBinary),
+    listDirectory: directory => directory === programsRoot ? ['IntelliJ IDEA'] : [],
+    pathExists: candidate => candidate === ideaBinary,
   })
   const result = await f.launcher.open({ repo, file: 'src/a.ts', line: 12 }, 'idea')
   assert.equal(result.ok, true)
