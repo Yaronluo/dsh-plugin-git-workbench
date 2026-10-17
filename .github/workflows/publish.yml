@@ -1,9 +1,19 @@
 name: Publish
 
 # Publishes the package to npm, which is what lets storefronts show a download
-# count and install without a build step. It needs a granular npm token in
-# the NPM_TOKEN repository secret, with package publish permissions and the
-# appropriate 2FA policy. Without the secret no package is published.
+# count and install without a build step.
+#
+# Authentication uses npm Trusted Publishing (OIDC) rather than a long-lived
+# NPM_TOKEN secret: the job mints a short-lived credential that npm only issues
+# to this exact repository + workflow file, and npm attaches a provenance
+# attestation to the tarball it receives. The matching configuration lives on
+# npmjs.com -> dsh-plugin-git-workbench -> Settings -> Trusted publishing
+# (GitHub Actions: Yaronluo / dsh-plugin-git-workbench / publish.yml, with
+# `npm publish` allowed). npm does not validate that configuration when it is
+# saved, and a configuration that never publishes successfully expires after two
+# days, so `workflow_dispatch` with `verify_only` re-checks the trust
+# relationship without touching the registry contents.
+#
 # A release created with GITHUB_TOKEN does not trigger release-event workflows;
 # workflow_run therefore follows the successful Release workflow instead.
 #
@@ -16,16 +26,37 @@ on:
     workflows: ['Release']
     types: [completed]
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Check the npm trusted publisher configuration without publishing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  id-token: write # mints the OIDC token that npm exchanges for a publish token
 
 jobs:
+  verify:
+    name: Verify npm trusted publisher
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - name: Exchange a GitHub OIDC token for an npm publish token
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+        run: bash scripts/npm-trusted-publisher-probe.sh
+
   publish:
     name: Publish to npm
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event_name == 'workflow_dispatch' && !inputs.verify_only) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
@@ -45,20 +76,29 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::warning::NPM_TOKEN is not set - no npm package was published"
-            echo "npm publication was skipped: configure the NPM_TOKEN repository secret or publish locally after npm login." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          version="$(npm --version)"
+          echo "npm $version"
+          # Trusted publishing needs npm >= 11.5.1; fail loudly instead of
+          # letting the exchange fail with an opaque authentication error.
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number)
+            const ok = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)))
+            if (!ok) {
+              console.error(`::error::npm ${process.argv[1]} is too old for trusted publishing (needs >= 11.5.1)`)
+              process.exit(1)
+            }
+          ' "$version"
           name="$(node -p "require('./package.json').name")"
-          version="$(node -p "require('./package.json').version")"
-          if npm view "$name@$version" version >/dev/null 2>&1; then
-            echo "$name@$version is already on npm - nothing to publish"
+          release="$(node -p "require('./package.json').version")"
+          if npm view "$name@$release" version >/dev/null 2>&1; then
+            echo "$name@$release is already on npm - nothing to publish"
             exit 0
           fi
-          # `prepublishOnly` rebuilds, typechecks and tests before the upload.
+          # Prove the OIDC trust relationship before `prepublishOnly` rebuilds,
+          # typechecks and tests, so a misconfigured trusted publisher shows up
+          # as one clear line rather than as an authentication error at upload.
+          bash scripts/npm-trusted-publisher-probe.sh
           npm publish
-          echo "published $name@$version"
+          echo "published $name@$release"
