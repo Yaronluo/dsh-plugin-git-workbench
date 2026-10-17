@@ -64,7 +64,7 @@ export const STYLES = `
    controls as one tight group with a gap, and never let a long branch name
    squeeze the neighbours. */
 .dsh-git-header-controls { display: inline-flex; align-items: center; gap: 8px; margin-left: 6px; min-width: 0; }
-.dsh-git-header-controls .dsh-git-chip > span { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-git-header-controls .dsh-git-chip > .dsh-git-chip-branch { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-git-search-box { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 8px 10px 4px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
 .dsh-git-search-input { border: none; outline: none; background: transparent; width: 100%; font-size: 13px; color: var(--dsw-alias-label-primary); }
 .dsh-git-dirty-warning { padding: 6px 14px; font-size: 12px; color: var(--dsw-alias-state-warn-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 10%, transparent); margin: 4px 10px; border-radius: 6px; }
@@ -471,8 +471,13 @@ export const STYLES = `
 .dsh-git-badge-warn { color: var(--dsw-alias-state-warn-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 14%, transparent); }
 .dsh-git-badge-error { color: var(--dsw-alias-state-error-primary); background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 14%, transparent); }
 .dsh-git-badge-brand { color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 13%, transparent); }
-.dsh-git-ahead { color: var(--dsw-alias-brand-primary); }
-.dsh-git-behind { color: var(--dsw-alias-state-warn-primary); }
+.dsh-git-ahead, .dsh-git-behind { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 5px; border-radius: 999px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.dsh-git-ahead { color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 13%, transparent); }
+.dsh-git-behind { color: var(--dsw-alias-state-warn-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 14%, transparent); }
+/* The popover's divergence row: one pill per diverged side, never a zero side, and the row carries
+   the popover's own gutter instead of hugging the card edge. */
+.dsh-git-diverged { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 14px 8px; }
+.dsh-git-diverged .dsh-git-ahead, .dsh-git-diverged .dsh-git-behind { padding: 2px 8px 2px 6px; font-size: 11.5px; }
 .dsh-git-popover-section { padding: 4px 10px 8px; }
 .dsh-git-popover-actions { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
 .dsh-git-popover-actions .dsh-git-btn { flex: 1; justify-content: center; }
@@ -532,9 +537,11 @@ export const STYLES = `
 .dsh-git-btn-danger:hover:not(:disabled) { border-color: var(--dsw-alias-state-error-primary); }
 .dsh-git-action-notice { color: var(--dsw-alias-label-secondary); }
 .dsh-git-busy-notice { color: var(--dsw-alias-label-secondary); font-style: italic; }
-.dsh-git-ahead-behind, .dsh-git-stash-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-variant-numeric: tabular-nums; }
-.dsh-git-ahead-behind { color: var(--dsw-alias-brand-primary); }
-.dsh-git-stash-badge { color: var(--dsw-alias-label-secondary); }
+.dsh-git-ahead-behind, .dsh-git-stash-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 5px; border-radius: 999px; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.dsh-git-ahead-behind { color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 13%, transparent); }
+/* The repo row marks both directions with the shared pill; the behind side keeps the warn tone. */
+.dsh-git-ahead-behind.dsh-git-behind { color: var(--dsw-alias-state-warn-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 14%, transparent); font-size: 10.5px; }
+.dsh-git-stash-badge { color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); }
 .dsh-git-scope-group { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); }
 .dsh-git-scope-option { height: 22px; padding: 0 8px; border: none; border-radius: 5px; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 11px; cursor: pointer; }
 .dsh-git-scope-option:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }

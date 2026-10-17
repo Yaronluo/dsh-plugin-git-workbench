@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import type { BranchesView } from '../../core/types.js'
 import { gitApi } from '../api.js'
-import { IconBranch, IconChevronDown } from '../icons.js'
+import { IconArrowDown, IconArrowUp, IconBranch, IconChevronDown } from '../icons.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
 import { BranchPopover } from './BranchPopover.js'
 import { useWorkspaceContext } from '../cwd-resolver.js'
@@ -54,9 +54,10 @@ function RepositoryChip({ cwd, sessionId, onOpenGitPanel }: {
     <button type="button" className={`dsh-git-chip ${open ? 'dsh-git-chip-active' : ''}`} onClick={handleTogglePopover}
       disabled={fetchingBranches} aria-haspopup="dialog" aria-expanded={open} aria-busy={fetchingBranches}
       title={`当前分支: ${status.branch}${status.dirtyFiles > 0 ? ` (${status.dirtyFiles} 个修改文件)` : ''}`}>
-      <IconBranch size={16} /><span>{status.branch || 'HEAD'}</span>
-      {(status.ahead || 0) > 0 && <span className='dsh-git-ahead'>↑{status.ahead}</span>}
-      {(status.behind || 0) > 0 && <span className='dsh-git-behind'>↓{status.behind}</span>}
+      <IconBranch size={16} /><span className="dsh-git-chip-branch">{status.branch || 'HEAD'}</span>
+      {/* 计数用图标箭头，不用正文里的 ↑/↓ 字形：13px 文本箭头笔画过细，紧跟分支名会被读成「main 13」。 */}
+      {(status.ahead || 0) > 0 && <span className='dsh-git-ahead' title={`领先上游 ${status.ahead} 个提交`}><IconArrowUp size={12} />{status.ahead}</span>}
+      {(status.behind || 0) > 0 && <span className='dsh-git-behind' title={`落后上游 ${status.behind} 个提交`}><IconArrowDown size={12} />{status.behind}</span>}
       {(status.stashCount || 0) > 0 && <span className='dsh-git-badge'>储藏 {status.stashCount}</span>}
       <IconChevronDown size={12} />
     </button>

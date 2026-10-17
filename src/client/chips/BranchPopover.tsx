@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react'
 import type { BranchesView, RepoStatus } from '../../core/types.js'
 import { gitApi } from '../api.js'
 import { selectableBranches } from './branch-list.js'
-import { IconBranch, IconBranchPlus, IconCheck, IconCloudRefresh, IconHistory, IconPull, IconPush, IconSearch, IconFolderTree } from '../icons.js'
+import { IconArrowDown, IconArrowUp, IconBranch, IconBranchPlus, IconCheck, IconCloudRefresh, IconHistory, IconPull, IconPush, IconSearch, IconFolderTree } from '../icons.js'
 
 export interface BranchPopoverProps {
   view: BranchesView
@@ -49,11 +49,13 @@ export function BranchPopover({
   }, [view.branches, query])
 
   const currentBranch = view.branches.find(branch => branch.name === view.current)
-  const ahead = status?.ahead ?? currentBranch?.ahead
-  const behind = status?.behind ?? currentBranch?.behind
-  // 0/0 means the branch is level with its upstream. Printing "领先 0 个提交，落后 0 个提交"
-  // spends a whole row saying nothing, so only real divergence earns the line.
-  const diverged = (ahead ?? 0) > 0 || (behind ?? 0) > 0
+  const ahead = status?.ahead ?? currentBranch?.ahead ?? 0
+  const behind = status?.behind ?? currentBranch?.behind ?? 0
+  const stashCount = status?.stashCount ?? 0
+  // 0/0 means the branch is level with its upstream, so the row is skipped entirely. When the branch
+  // does diverge, each side is drawn as its own pill and the empty side is left out: printing
+  // "落后 0 个提交" next to a real count is the noise this row used to be.
+  const diverged = ahead > 0 || behind > 0
   const credentialHint = error && /credential|authentication|authorization|username|password|凭据|认证|密码|登录|401|403/i.test(error)
 
   const handleSwitch = async (branchName: string) => {
@@ -113,11 +115,10 @@ export function BranchPopover({
           />
         </div>
 
-        {(diverged || (status?.stashCount || 0) > 0) && <div className='dsh-git-muted'>
-          {diverged
-            ? <span>{`领先 ${ahead ?? 0} 个提交，落后 ${behind ?? 0} 个提交`}</span>
-            : null}
-          {(status?.stashCount || 0) > 0 && <span className='dsh-git-badge'>储藏 {status?.stashCount}</span>}
+        {(diverged || stashCount > 0) && <div className='dsh-git-diverged'>
+          {ahead > 0 && <span className='dsh-git-ahead' title={`领先上游 ${ahead} 个提交`}><IconArrowUp size={12} />领先 {ahead} 个提交</span>}
+          {behind > 0 && <span className='dsh-git-behind' title={`落后上游 ${behind} 个提交`}><IconArrowDown size={12} />落后 {behind} 个提交</span>}
+          {stashCount > 0 && <span className='dsh-git-badge'>储藏 {stashCount}</span>}
         </div>}
 
         {view.dirtyFiles > 0 && <div className='dsh-git-dirty-warning'>未提交的更改: {view.dirtyFiles} 个文件</div>}

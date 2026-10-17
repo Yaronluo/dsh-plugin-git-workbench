@@ -208,7 +208,7 @@ node --check lib/client.js
 
 ## 第六轮截图反馈（分支浮层的两行噪音）
 
-- **与上游一致时不再打印「领先 0 个提交，落后 0 个提交」**：这一行来自 `# branch.ab +0 -0`（`src/core/git-command.ts:8-13` 解析成 `status.ahead/behind`），只要有上游就渲染，于是同步状态下占掉一整行却说零信息，也和 `BranchChip` 的 `↑/↓` 徽标（0 时不显示）行为不一致。现在 `src/client/chips/BranchPopover.tsx:54` 用 `diverged`（任一侧大于 0）才渲染该行；储藏徽标不受影响，`0/0` 但有储藏时那一行仍然显示。
+- **与上游一致时不再打印「领先 0 个提交，落后 0 个提交」**：这一行来自 `# branch.ab +0 -0`（`src/core/git-command.ts:8-13` 解析成 `status.ahead/behind`），只要有上游就渲染，于是同步状态下占掉一整行却说零信息，也和 `BranchChip` 的 `↑/↓` 徽标（0 时不显示；第十三轮起这两个计数改成了图标箭头，第十四轮起连同计数一起包成带底色的小胶囊，见文末）行为不一致。现在 `src/client/chips/BranchPopover.tsx:54` 用 `diverged`（任一侧大于 0）才渲染该行；储藏徽标不受影响，`0/0` 但有储藏时那一行仍然显示。
 - **不再列出点了必然报错的远程分支**：点 `origin/master` 触发的是 Host 守卫 `src/host/git-service.ts:303`（`Local branch "master" already exists; select it explicitly instead of remote "origin/master"`）——本地 `master` 与 `origin/master` 是同一条记录的两行，Host 拒绝执行 `git switch --track -c master refs/remotes/origin/master`（Git 本身也会拒绝重名）。新增 `src/client/chips/branch-list.ts` 的 `selectableBranches`：远程行的短名（`remoteCheckoutName`，即第一个斜杠之后的部分，与 Host 的取短名逻辑一致）已被本地分支占用时，或本地已存在完全同名分支时，该远程行不再渲染。**没有本地对应的远程分支仍然保留**——fetch 之后检出队友的分支正是这条路径唯一的用途。过滤只作用于浮层列表，Host 的 `branches()` 与 agent 工具仍返回完整引用列表，`src/host/git-service.ts:303` 的守卫保持原样以防直接 API 调用。
 - 新增回归 `tests/client-branch-list.test.mjs`（7 条）：重复远程行被丢弃、短名被占用的远程行被丢弃、无本地对应的远程行保留、本地分支恰好叫 `origin/topic` 时保留自己的行、过滤后顺序与 current 标记不变、纯本地列表原样返回。
 
@@ -337,3 +337,38 @@ node --check lib/client.js
 - **订正 2（第 9 条）**：点「更多操作 → 历史」展开的是 `变更面板正文 > .dsh-git-panel-form` 里的内联文件检查视图；`.dsh-git-history-panel` 属于「提交记录」页签的提交图面板，两者不是同一条路径。条文已改写为指名路径并加了提醒。
 - **观察项（不算失败）**：git 原文错误直接透出（锁、脏、缺上游都是英文原文，`src/` 里没有翻译层）；`@media (prefers-reduced-motion: reduce)` 没有关掉 `.dsh-git-btn` 的底色过渡（`src/client/styles.ts:157,206`）；第 16 条的凭据提示行没有断言覆盖。
 - **回归**：`node --test tests/*.test.mjs` = **248 条 / 247 通过 / 1 跳过 / 0 失败 / 52.3s**（新增 10 + 4 条验收测试；跳过项是本机不支持的 POSIX FIFO 用例）；`npm run typecheck`、`npm run build` 通过。本轮只改客户端（`src/client/dialogs/WorktreeDialogs.tsx`），**刷新页面即可生效，无需重启 DSH Desktop**。
+
+## 第十三轮截图反馈（输入框胶囊的「↑3」被读成「main 13」）（2026-10-18）
+
+- **现象**：bili 工作区的新会话页里，输入框上方的分支胶囊被用户读成「main 13」，工作台仓库行也有同一个数字，用户判断是插件新引入的 bug。截图里被框住的有四处：胶囊、浮层的「领先 3 个提交，落后 0 个提交」、工作台仓库行、以及「工作区很干净」。
+- **先核对数据：这些数字全对**。`D:\bili` 的 `git status --porcelain=v2` 给出 `# branch.ab +3 -0`，`git rev-list --left-right --count main...origin/main` = `3 0`；三个提交 `c8d0ba6`（00:38「美化遥测控制台界面：重写双样式表并微调图表表现」）、`0a79c21`（01:09「重做遥测控制台视觉：深色侧栏 + BILI 粉主题，重构概览排版」）、`6152345`（02:06「遥测服务端回收陈旧安装索引，避免渠道满额后永久拒收新设备」）确实还没推送——`git ls-remote origin refs/heads/main` 仍是 `c1f4d06`，不是本地引用过期。工作区也确实干净（`git status --porcelain` 空）：近一小时的改动全落在 `.gitignore:5:**/build/` 覆盖的构建产物里。所以「工作区很干净」与「领先 3」并不矛盾——那三个提交已经提交，只是没推。
+- **为什么现在才看见**：胶囊上的 ahead 徽标来自 `42805d0`（2026-10-16「feat: 完善整页 Git 工作台并修复操作安全与会话草稿交互」），浮层的领先/落后行来自 `ceaab5e`（同日），构建产物 `lib/client.js` 生成于 2026-10-17 01:24——重启桌面端之后这批 UI 才第一次出现。
+- **真正的缺陷是字形与画法不一致**：`src/client/chips/BranchChip.tsx` 原先直接写正文文本 `↑{ahead}` / `↓{behind}`（U+2191 / U+2193），13px 下笔画极细、紧贴数字、与分支名之间只隔一个 chip gap，读起来就是「main 13」；而同一个数字在工作台仓库行（`src/client/diff/ChangesTab.tsx:486-487`）用的是 `IconArrowUp` / `IconArrowDown` 的 SVG。
+- **修法（用户点名的范围内：只改胶囊）**：
+  - `src/client/chips/BranchChip.tsx:4,57-60`：分支名包进 `.dsh-git-chip-branch`；计数改用 `IconArrowUp` / `IconArrowDown`（12px，定义在 `src/client/icons.tsx:206,210`：24×24 viewBox、stroke 1.7），并补 `title`（「领先上游 N 个提交」/「落后上游 N 个提交」）。储藏徽标那一行没动。
+  - `src/client/styles.ts:67`：截断规则从 `.dsh-git-chip > span` 收窄到 `.dsh-git-chip > .dsh-git-chip-branch`，否则 `max-width: 104px` / `text-overflow: ellipsis` 也会套到徽标上。
+  - `src/client/styles.ts:474-476`：`.dsh-git-ahead, .dsh-git-behind` 改成 `display: inline-flex; gap: 2px; font-size: 11.5px; font-variant-numeric: tabular-nums`，颜色 token 不变（`brand-primary` / `state-warn-primary`）。数字与它自己的箭头绑在一起（2px）、与分支名隔开（chip 的 gap），层级才对。
+- **刻意没改**（用户没勾选这两项，别顺手改）：`src/client/chips/BranchPopover.tsx:118` 在只有一侧非零时仍会写出「落后 0 个提交」；同一个 ahead 数字在输入框胶囊、浮层、工作台仓库行三处重复显示。
+- **验证**：
+  - `npm run typecheck` 通过；`npm run build` 重新生成 `lib/index.js` + `lib/client.js`。本轮只动客户端，按本文档第 205 行的约定**刷新页面即可生效，无需重启 DSH Desktop**。
+  - 新增 `tests/branch-chip-badge.test.mjs`（3 条）：用 `node:module` 的 `registerHooks` + `ts.transpileModule` 直接对**真实组件**做 SSR（客户端桩只替换 `api.js` / `use-git-status.js` / `cwd-resolver.js` / `BranchPopover.js`，`.js` 仍解析到真实的 `icons.tsx`），断言分支名仍是 `main`、整块 markup 里不得出现 `↑`/`↓` 字符、徽标内是 24×24 的 svg 且数字在 `</svg>` 之后、`title` 文案、0/0 时什么都不渲染，以及样式表里不再有会误伤徽标的 `.dsh-git-chip > span {`。
+  - `tests/acceptance-ui.test.mjs:849-863` 的浏览器断言同步改成 `textContent === '2'` / `'1'`，并新增「箭头必须是 svg（`viewBox` = `0 0 24 24`）」与「正文不得出现 `↑↓`」两条。
+  - **这轮浏览器验收是真跑了的**：本机 profile 下没有 `puppeteer-core`（`C:\Users\luoya\.dsh\profiles\desktop\node_modules\puppeteer-core\...` 不存在，profile 的 `package.json` 也没声明它），所以默认的 `npm test` 会跳过这 10 条和 `acceptance-host` 的第 3 条。装到临时目录再把路径指过去即可：`npm install --prefix %TEMP%\dsh-puppeteer-core puppeteer-core@latest` + `$env:DSH_PUPPETEER_MODULE=%TEMP%\dsh-puppeteer-core\node_modules\puppeteer-core\lib\puppeteer\puppeteer-core.js`。这样跑 `tests/acceptance-ui.test.mjs` 是 **10/10 通过、`ACCEPTANCE_UI_ASSERTIONS=256`**，其中「Acceptance 8: branch chip and popover render only nonzero divergence and stash badges」就在真实 Chrome + 真实组件 + 真实令牌下验证了本轮改动。
+  - 视觉对比（同一套样式表、同一个 Chrome，SSR 真实组件、两张图并排）：`%TEMP%\dsh-git-chip-preview\chip-variants.png`。改之前 `main ↑3`（细箭头贴数字）、改之后 `main ↑ 3`（图标箭头、与数字留 2px、数字降为 11.5px）。
+- **观察项**：
+  - 临时装 `puppeteer-core@25.14.0` 之后，全量跑会有一条宿主验收用例（`acceptance-host.test.mjs` 的「real Cordis host scopes two repos…」）在并行负载下出现 20.2s 超时（3 次运行里 1 次，单独重跑通过），并且进程结束后不退出、需要 `--test-force-exit`。与本轮改动无关（本轮只改客户端），留档待查。
+  - 回归数字：默认 `npm test`（无 puppeteer）本机是 **248 条 / 235 通过 / 13 跳过 / 0 失败 / 63.3s**；配上临时 puppeteer + `--test-force-exit` 后是 **251 条 / 250 通过 / 1 跳过 / 0 失败 / 60.3s**（跳过的是本机不支持的 POSIX FIFO 用例）。
+
+## 第十四轮截图反馈（浮层的分歧行重做，计数改成带底色的胶囊）（2026-10-18）
+
+- **现象**：第二轮截图里被框住的是浮层打开时那行「领先 3 个提交，落后 0 个提交」，原话「这里也改一下，太丑了，而且那个图标也没变啊，你不是改了嘛？」。两件事要分开：(a) 浮层那行确实又丑又啰嗦；(b) 胶囊里的箭头看起来没变。
+- **先验证第十三轮到底生效没有：生效了，只是看不出来**。运行中窗口的自检文件 `%TEMP%\dsh-plugin-git-client-report-client.json` 落盘于 2026-10-18 02:49:47（= 2026-10-17T18:49:46.819Z），`build: "font-cjk-3"`、`stylesLength: 70954`，晚于那次构建；像素级证据更直接：把用户那张截图里的胶囊放大到 2×/8× 后，箭头是**描边图标**（笔画有粗细变化、带圆头）且与数字之间有空隙——1.0.3 的正文 `↑3` 是等宽笔画、紧贴数字。所以问题是「改动幅度不够、1× 下看不出来」，不是热更新没生效。
+- **改法（浮层这一行）**：`src/client/chips/BranchPopover.tsx:51-58` 把 `ahead`/`behind`/`stashCount` 一律归一成数字，`diverged = ahead > 0 || behind > 0`；`:118` 起用 `.dsh-git-diverged` 行替换原来那句固定文案——**只画真正非零的那一侧**，每一侧是一个「图标 + 文字」的胶囊（`领先 3 个提交` / `落后 2 个提交`），各自带 `title`；有储藏时同一行再补 `储藏 N` 徽标；与上游一致（0/0）时整行不渲染（第六轮的约定不变）。原来那行用 `.dsh-git-muted`（`src/client/styles.ts:214` 只有颜色、没有 padding），所以是贴着卡片左边缘的；现在 `src/client/styles.ts:479-480` 的 `.dsh-git-diverged { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 14px 8px }` 让它左右都有呼吸位，窄侧栏里换行也不挤。
+- **改法（胶囊里的计数）**：`src/client/styles.ts:474-476` 把 `.dsh-git-ahead, .dsh-git-behind` 从「裸图标 + 数字」升级成**带底色的小胶囊**：`padding: 1px 6px 1px 5px; border-radius: 999px; font-size: 11px`，ahead 用 `brand-primary` 13% 底 + 品牌色字，behind 用 `state-warn-primary` 14% 底 + 警示色字。这样「↑ 3」在分支名后面是一个有硬边界的整体，不可能再被读成 `main 13` 的一部分。
+- **三处统一**：工作台仓库行（`src/client/diff/ChangesTab.tsx:486-487`）的两个徽标补上 `dsh-git-ahead` / `dsh-git-behind` 类，于是它与输入框胶囊、浮层胶囊共用同一套画法；`src/client/styles.ts:540-544` 给 `.dsh-git-ahead-behind, .dsh-git-stash-badge` 同样的 `padding: 1px 6px 1px 5px; border-radius: 999px`，behind 一侧靠复合选择器 `.dsh-git-ahead-behind.dsh-git-behind` 换成警示色（特定度高于单类，不依赖书写顺序）。
+- **测试**：
+  - `tests/branch-chip-badge.test.mjs` 从 3 条加到 **5 条**：现在也 SSR 真实的 `BranchPopover`（只桩掉 `api.js`，`.js` 依次找 `.tsx`/`.ts`），断言 ahead-only 时浮层只画一个胶囊 `领先 3 个提交`、全行不得出现「落后」或 `↑↓`；两侧都分歧时两个胶囊；与上游一致时 `.dsh-git-diverged` 根本不出现。样式表断言同步换成新的胶囊 CSS。
+  - `tests/acceptance-ui.test.mjs` 的 Acceptance 8 增加 **ahead-only 阶段**（ahead 3 / behind 0 / stash 0）：真实 Chrome 里断言胶囊里是 `3` + svg、没有 behind，浮层里恰好一个 `.dsh-git-diverged > span` 且文本是 `领先 3 个提交`、不含「落后」；0/0 阶段改为断言整行不存在。
+  - `tests/branch-popover-layout.test.mjs` 的图标桩补上 `IconArrowUp`/`IconArrowDown`：桩的导出白名单缺这两个会让真实组件 import 失败（`SyntaxError: The requested module '../icons.js' does not provide an export named 'IconArrowDown'`）。**组件新增图标依赖时必须同步桩白名单**——这是本轮唯一一次回归失败，也是这类 SSR 测试的固定坑。
+- **视觉对比**：`%TEMP%\dsh-git-chip-preview\pills-after.png`（1560x1440，2× 缩放）是同一套真实组件 + `sheetText()` + 应用真实令牌表渲染的「改之前 / 改之后」并排图：左边 `main ↑3` + 贴边的「领先 3 个提交，落后 0 个提交」，右边 `main [↑ 3]` + 带 14px 内边距的 `[↑ 领先 3 个提交]` 胶囊，且没有「落后 0」。
+- **回归**：`node --test tests/*.test.mjs`（配临时 `puppeteer-core` + `--test-force-exit`）= **253 条 / 252 通过 / 0 失败 / 1 跳过 / 52.0s**，浏览器验收 `ACCEPTANCE_UI_ASSERTIONS=266`；`npm run typecheck`、`npm run build` 通过。本轮只改客户端，**刷新页面即可生效，无需重启 DSH Desktop**。

@@ -831,11 +831,13 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
   await page.waitForSelector('.dsh-git-popover')
   const zeroPopover = await page.$eval('.dsh-git-popover', node => ({
     text: node.textContent,
+    diverged: !!node.querySelector('.dsh-git-diverged'),
     ahead: node.querySelectorAll('.dsh-git-ahead').length,
     behind: node.querySelectorAll('.dsh-git-behind').length,
     stash: [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim() === '储藏 0'),
   }))
-  check.doesNotMatch(zeroPopover.text, /领先 0 个提交，落后 0 个提交/)
+  check.doesNotMatch(zeroPopover.text, /领先|落后/)
+  check.equal(zeroPopover.diverged, false, '与上游一致时整行都不渲染')
   check.equal(zeroPopover.ahead, 0)
   check.equal(zeroPopover.behind, 0)
   check.equal(zeroPopover.stash, false)
@@ -846,27 +848,64 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
     repo.status = { ...repo.status, head: 'head-diverged', revision: 'revision-diverged', ahead: 2, behind: 1, stashCount: 3 }
   })
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  await page.waitForFunction(() => document.querySelector('.dsh-git-ahead')?.textContent === '↑2' && document.querySelector('.dsh-git-behind')?.textContent === '↓1')
+  await page.waitForFunction(() => document.querySelector('.dsh-git-ahead')?.textContent === '2' && document.querySelector('.dsh-git-behind')?.textContent === '1')
   const divergedChip = await page.$eval('.dsh-git-chip', node => ({
+    branch: node.querySelector('.dsh-git-chip-branch')?.textContent,
     ahead: node.querySelector('.dsh-git-ahead')?.textContent,
     behind: node.querySelector('.dsh-git-behind')?.textContent,
+    arrowIcons: [...node.querySelectorAll('.dsh-git-ahead svg, .dsh-git-behind svg')].map(icon => icon.getAttribute('viewBox')),
     stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === '储藏 3')?.textContent.trim(),
   }))
-  check.equal(divergedChip.ahead, '↑2')
-  check.equal(divergedChip.behind, '↓1')
+  check.equal(divergedChip.branch, 'main')
+  check.equal(divergedChip.ahead, '2')
+  check.equal(divergedChip.behind, '1')
+  // 计数必须画成图标箭头：正文里的 ↑/↓ 字形紧跟分支名会被读成「main 13」。
+  check.deepEqual(divergedChip.arrowIcons, ['0 0 24 24', '0 0 24 24'])
+  check.doesNotMatch(`${divergedChip.branch}${divergedChip.ahead}${divergedChip.behind}`, /[↑↓]/, 'the chip never glues a text arrow glyph onto the branch name')
   check.equal(divergedChip.stash, '储藏 3')
   await page.click('.dsh-git-chip')
   await page.waitForSelector('.dsh-git-popover')
   const divergedPopover = await page.$eval('.dsh-git-popover', node => ({
     text: node.textContent,
     stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === '储藏 3')?.textContent.trim(),
-    ahead: node.querySelectorAll('.dsh-git-ahead').length,
+    ahead: node.querySelector('.dsh-git-diverged .dsh-git-ahead')?.textContent.trim(),
+    behind: node.querySelector('.dsh-git-diverged .dsh-git-behind')?.textContent.trim(),
+    aheadIcon: !!node.querySelector('.dsh-git-diverged .dsh-git-ahead svg'),
+    behindIcon: !!node.querySelector('.dsh-git-diverged .dsh-git-behind svg'),
+  }))
+  check.equal(divergedPopover.ahead, '领先 2 个提交')
+  check.equal(divergedPopover.behind, '落后 1 个提交')
+  check.equal(divergedPopover.aheadIcon, true, '领先那一侧画的是图标箭头')
+  check.equal(divergedPopover.behindIcon, true, '落后那一侧画的是图标箭头')
+  check.doesNotMatch(divergedPopover.text, /[↑↓]/, '这一行也不再用正文 ↑/↓ 字形')
+  check.equal(divergedPopover.stash, '储藏 3')
+
+  // The reported defect: a branch that only leads its upstream still printed "落后 0 个提交".
+  await page.click('.dsh-git-popover-backdrop')
+  await page.evaluate(() => {
+    const repo = window.__gitData.repos['/repo-branch-chip']
+    repo.status = { ...repo.status, head: 'head-ahead-only', revision: 'revision-ahead-only', ahead: 3, behind: 0, stashCount: 0 }
+  })
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.waitForFunction(() => document.querySelector('.dsh-git-ahead')?.textContent === '3' && !document.querySelector('.dsh-git-behind'))
+  const aheadOnlyChip = await page.$eval('.dsh-git-chip', node => ({
+    ahead: node.querySelector('.dsh-git-ahead')?.textContent,
+    arrow: !!node.querySelector('.dsh-git-ahead svg'),
     behind: node.querySelectorAll('.dsh-git-behind').length,
   }))
-  check.match(divergedPopover.text, /领先 2 个提交，落后 1 个提交/)
-  check.equal(divergedPopover.stash, '储藏 3')
-  check.equal(divergedPopover.ahead, 0)
-  check.equal(divergedPopover.behind, 0)
+  check.equal(aheadOnlyChip.ahead, '3')
+  check.equal(aheadOnlyChip.arrow, true)
+  check.equal(aheadOnlyChip.behind, 0)
+  await page.click('.dsh-git-chip')
+  await page.waitForSelector('.dsh-git-popover')
+  const aheadOnlyPopover = await page.$eval('.dsh-git-popover', node => ({
+    text: node.textContent,
+    ahead: node.querySelector('.dsh-git-diverged .dsh-git-ahead')?.textContent.trim(),
+    pills: node.querySelectorAll('.dsh-git-diverged > span').length,
+  }))
+  check.equal(aheadOnlyPopover.ahead, '领先 3 个提交')
+  check.equal(aheadOnlyPopover.pills, 1, '只有领先那一侧，不打印空的落后')
+  check.doesNotMatch(aheadOnlyPopover.text, /落后/)
 
   await page.click('.dsh-git-popover-backdrop')
   await page.evaluate(() => {
@@ -878,7 +917,8 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
   check.equal(await page.$eval('.dsh-git-chip', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('储藏'))), false)
   await page.click('.dsh-git-chip')
   await page.waitForSelector('.dsh-git-popover')
-  check.doesNotMatch(await page.$eval('.dsh-git-popover', node => node.textContent), /领先 0 个提交，落后 0 个提交/)
+  check.equal(await page.$eval('.dsh-git-popover', node => !!node.querySelector('.dsh-git-diverged')), false, '回到与上游一致时这一行整行消失')
+  check.doesNotMatch(await page.$eval('.dsh-git-popover', node => node.textContent), /领先|落后/)
   check.equal(await page.$eval('.dsh-git-popover', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('储藏'))), false)
   check.deepEqual(errors, [])
 })

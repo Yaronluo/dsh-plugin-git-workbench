@@ -22,7 +22,7 @@ registerHooks({
       if (specifier.endsWith('/api.js')) return virtual('export const gitApi = { fetch: async () => ({ ok: true }), pull: async () => ({ ok: true }), push: async () => ({ ok: true }) };')
       if (specifier.endsWith('/branch-list.js')) return virtual('export const selectableBranches = branches => branches.filter(branch => !branch.isRemote);')
       if (specifier.endsWith('/icons.js')) {
-        const names = ['IconBranch', 'IconBranchPlus', 'IconCheck', 'IconCloudRefresh', 'IconHistory', 'IconPull', 'IconPush', 'IconSearch', 'IconFolderTree']
+        const names = ['IconArrowDown', 'IconArrowUp', 'IconBranch', 'IconBranchPlus', 'IconCheck', 'IconCloudRefresh', 'IconHistory', 'IconPull', 'IconPush', 'IconSearch', 'IconFolderTree']
         return virtual(names.map(name => `export const ${name}=()=>null;`).join(''))
       }
     }

@@ -483,8 +483,8 @@ export function ChangesTab(props: any) {
         : <div className="dsh-git-changes-header">
         <div className="dsh-git-repo-row">
           <span className="dsh-git-current-branch" title={status?.branch || 'HEAD'}><IconBranch size={15} /><span>{status?.branch || 'HEAD'}</span></span>
-          {!!status?.ahead && <span className="dsh-git-ahead-behind" title={`领先上游 ${status.ahead} 个提交`}><IconArrowUp size={12} />{status.ahead}</span>}
-          {!!status?.behind && <span className="dsh-git-ahead-behind" title={`落后上游 ${status.behind} 个提交`}><IconArrowDown size={12} />{status.behind}</span>}
+          {!!status?.ahead && <span className="dsh-git-ahead-behind dsh-git-ahead" title={`领先上游 ${status.ahead} 个提交`}><IconArrowUp size={12} />{status.ahead}</span>}
+          {!!status?.behind && <span className="dsh-git-ahead-behind dsh-git-behind" title={`落后上游 ${status.behind} 个提交`}><IconArrowDown size={12} />{status.behind}</span>}
           {!!status?.stashCount && <span className="dsh-git-stash-badge" title={`有 ${status.stashCount} 条储藏`}><IconStash size={12} />{status.stashCount}</span>}
           <div className="dsh-git-change-summary">
             {diffView && <span className="dsh-git-file-count">{diffView.files.length ? `${diffView.files.length} 个文件` : '无变更'}</span>}
