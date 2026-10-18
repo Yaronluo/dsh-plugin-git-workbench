@@ -6,9 +6,10 @@
 # It performs exactly the exchange the npm CLI performs before `npm publish`
 # (see npm's lib/utils/oidc.js): ask GitHub for an ID token with the audience
 # `npm:registry.npmjs.org`, then POST it to the registry's package exchange
-# endpoint. A 200 with a `token` field means the trust relationship is in place
-# and `npm publish` will authenticate; anything else means npmjs.com has no (or
-# a mismatching) trusted publisher for this repository + workflow file.
+# endpoint. A `token` field in the response (npm answers 201) means the trust
+# relationship is in place and `npm publish` will authenticate; anything else
+# means npmjs.com has no (or a mismatching) trusted publisher for this
+# repository + workflow file.
 #
 # The exchanged credential is deliberately never printed: only the HTTP status
 # and npm's error message are shown.
@@ -50,13 +51,15 @@ status="$(curl -sS -o "$body" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer ${id_token}" \
   "${registry}/-/npm/v1/oidc/token/exchange/package/${package}")"
 
-if [ "$status" = '200' ] && [ "$(read_json "$body" "data.token ? 'yes' : 'no'")" = 'yes' ]; then
-  echo "trusted publisher OK: npm issued a short-lived publish token for ${package} to ${workflow}"
-  echo "- npm trusted publisher verified for \`${package}\` (${workflow})" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+# The token in a successful response is a live credential: success is decided by
+# its presence, and no branch ever echoes the response body itself.
+if [ "$(read_json "$body" "data.token ? 'yes' : 'no'")" = 'yes' ]; then
+  echo "trusted publisher OK (HTTP ${status}): npm issued a short-lived publish token for ${package} to ${workflow}"
+  echo "- npm trusted publisher verified for \`${package}\` (${workflow}), HTTP ${status}" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
   exit 0
 fi
 
-message="$(read_json "$body" "data.message || data.error || JSON.stringify(data)" 2>/dev/null || echo '(unparsable response body)')"
+message="$(read_json "$body" "data.message || data.error || 'unexpected response body'")"
 echo "::error::npm rejected the OIDC exchange with HTTP ${status}: ${message}"
 {
   echo "### npm trusted publisher check failed"
