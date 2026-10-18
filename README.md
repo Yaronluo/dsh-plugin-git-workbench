@@ -115,6 +115,18 @@ dsh plugin --profile desktop add https://github.com/Yaronluo/dsh-plugin-git-work
 
 其它 profile 请将 `desktop` 替换为实际名称。按宿主提示重启应用后使用。
 
+### 校验发布来源
+
+`1.0.5` 起，npm 上的包由 GitHub Actions 通过 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers)（OIDC）发布：仓库里不再保存长期 npm token，每次发布都由 runner 现场换取一次性凭据；npm 随之附上 **provenance 证明**，记录这个 tarball 由哪个仓库、哪个 workflow、哪个提交构建而来。
+
+想确认手里的包确实来自本仓库，可以查它的证明：
+
+```bash
+npm view dsh-plugin-git-workbench dist.attestations
+```
+
+把包装进某个项目后，也可以让 npm 校验整棵依赖树的签名：`npm audit signatures`。只有 npm 渠道带证明；GitHub Release 的 tarball 由同一个 tag 触发构建、内容一致，但没有签名。`1.0.4` 及更早的版本是用一次性 token 发布的，没有 provenance。
+
 ### 从源码安装
 
 开发和本地调试可使用以下方式：
