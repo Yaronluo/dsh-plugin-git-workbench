@@ -26,7 +26,12 @@ test('plugin CSS and inline styles reference declared host theme tokens only', a
   await scan(new URL('../src/client/', import.meta.url))
   const source = contents.join('\n')
   assert.doesNotMatch(source, /#[\da-f]{3,8}\b|rgba?\(/i)
-  for (const [, variable] of source.matchAll(/var\((--[\w-]+)/g)) assert.ok(allowed.has(variable), `Unknown theme token ${variable}`)
+  for (const [, variable] of source.matchAll(/var\((--[\w-]+)/g)) {
+    // `--dsh-git-*` are the plugin's own variables (it sets them inline); only host theme
+    // tokens have to be declared by the theme.
+    if (variable.startsWith('--dsh-git-')) continue
+    assert.ok(allowed.has(variable), `Unknown theme token ${variable}`)
+  }
   assert.doesNotMatch(source, /__dsh_scope__|findHeroRow|createPortal/)
 })
 

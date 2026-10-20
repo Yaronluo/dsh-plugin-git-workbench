@@ -380,16 +380,21 @@ export const STYLES = `
 .dsh-git-conflict-marker { color: var(--dsw-alias-label-secondary); font-style: italic; }
 
 /* ---------- history graph / details ---------- */
-.dsh-git-graph-row { display: flex; align-items: stretch; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--dsw-alias-border-l1); cursor: pointer; }
+/* The graph canvas is one absolutely positioned overlay per list (see
+   .dsh-git-graph-backdrop), so rows only carry text and their own dot. */
+.dsh-git-graph-view { position: relative; }
+.dsh-git-graph-backdrop { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
+.dsh-git-graph-row { position: relative; padding: 6px 0 6px var(--dsh-git-graph-gutter, 28px); border-bottom: 1px solid var(--dsw-alias-border-l1); cursor: pointer; }
 .dsh-git-graph-row:hover { background: var(--dsw-alias-bg-layer-2); }
 .dsh-git-graph-row-active { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent); }
-.dsh-git-graph-canvas { flex-shrink: 0; width: 60px; }
-.dsh-git-graph-canvas svg { display: block; }
-.dsh-git-graph-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; padding: 2px 0; }
+/* The commit rows reuse the shared list item class, whose rhythm and border would
+   double up with the row's own padding and separator. */
+.dsh-git-graph-row > .dsh-git-history-item { padding: 0; border-bottom: 0; }
+.dsh-git-graph-node { position: absolute; top: 50%; z-index: 3; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: currentColor; }
+.dsh-git-graph-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 2px 0; }
 .dsh-git-graph-subject { font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
 .dsh-git-graph-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
 .dsh-git-graph-meta code { color: var(--dsw-alias-brand-primary); }
-.dsh-git-graph-dot { fill: currentColor; }
 .dsh-git-lane-0 { color: var(--dsw-alias-brand-primary); }
 .dsh-git-lane-1 { color: var(--dsw-alias-state-success-primary); }
 .dsh-git-lane-2 { color: var(--dsw-alias-state-warn-primary); }

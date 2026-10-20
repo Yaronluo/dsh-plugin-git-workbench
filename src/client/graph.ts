@@ -42,9 +42,20 @@ export function computeGraph(commits: readonly GitGraphCommit[], maxColumns = 8)
     }
     const parents: GraphParent[] = []
     const next = columns.slice()
-    next[column] = commit.parents[0] ?? ''
-    if (commit.parents[0]) parents.push({ hash: commit.parents[0], column })
-    for (const parent of commit.parents.slice(1)) {
+    next[column] = ''
+    const [first, ...mergeParents] = commit.parents
+    if (first) {
+      // A first parent that another lane already tracks is a merge back into that lane:
+      // this column closes and the edge points at the existing one. Keeping both would
+      // paint an extra lane that never ends and leave a stub after the last commit.
+      const existing = next.indexOf(first)
+      if (existing >= 0) parents.push({ hash: first, column: existing })
+      else {
+        next[column] = first
+        parents.push({ hash: first, column })
+      }
+    }
+    for (const parent of mergeParents) {
       let target = next.indexOf(parent)
       if (target < 0) {
         target = next.indexOf('')

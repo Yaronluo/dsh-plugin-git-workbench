@@ -12,7 +12,7 @@ const virtual = source => ({ url: `data:text/javascript,${encodeURIComponent(sou
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL?.endsWith('/dialogs/GitGraphDialog.tsx')) {
-      if (specifier === 'react') return virtual(`export class Component { constructor(props){ this.props=props; this.state={} } setState(next){ this.state={...this.state,...next} } }; export default {Component}; ${['useState', 'useEffect'].map(name => `export const ${name}=(...args)=>globalThis.__graphHookHarness.${name}(...args);`).join(' ')}`)
+      if (specifier === 'react') return virtual(`export class Component { constructor(props){ this.props=props; this.state={} } setState(next){ this.state={...this.state,...next} } }; export default {Component}; ${['useState', 'useEffect', 'useLayoutEffect', 'useRef'].map(name => `export const ${name}=(...args)=>globalThis.__graphHookHarness.${name}(...args);`).join(' ')}`)
       if (specifier === 'react/jsx-runtime') return virtual('export const jsx=(type,props)=>({type,props}); export const jsxs=jsx; export const Fragment="fragment";')
       if (specifier === './CommitDetailDialog.js') {
         return virtual(globalThis.__graphHookHarness.commitModuleSource ?? 'export function CommitDetailDialog(){ return null }')
@@ -59,6 +59,12 @@ function fixture() {
         slots[index] = { deps, cleanup: previous?.cleanup }
         effects.push(() => { previous?.cleanup?.(); slots[index].cleanup = effect() })
       }
+    },
+    useLayoutEffect(effect, deps) { this.useEffect(effect, deps) },
+    useRef(initial) {
+      const index = cursor++
+      if (!slots[index]) slots[index] = { value: { current: initial } }
+      return slots[index].value
     },
   }
   gitApi.getLog = (path, limit, signal) => new Promise((resolve, reject) => requests.push({ path, limit, signal, resolve, reject }))
@@ -154,5 +160,22 @@ test('detail chunk failures remain retryable and the graph tabs can return to th
     await f.settle()
     assert.equal(nodes(f.tree, node => node.type === SelectedCommitDetails).length, 0)
     assert.equal(nodes(f.tree, node => node.props?.['aria-label']?.includes(' aaa ')).length, 1)
+  } finally { f.dispose() }
+})
+
+test('提交记录 reserves one lane gutter and never falls back to a canvas per row', async () => {
+  const f = fixture()
+  try {
+    f.statusState({ status: { isGit: true, branch: 'main', head: 'head-1' } })
+    f.requests[0].resolve([commit('aaa')])
+    await f.settle()
+
+    // The old markup drew a 34px canvas inside every row, which is why each lane stopped at
+    // its row edge and the graph read as a column of dashes. Lanes now share one canvas.
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-graph-canvas').length, 0)
+    const list = nodes(f.tree, node => node.props?.className === 'dsh-git-history-list')[0]
+    assert.equal(list.props.style['--dsh-git-graph-gutter'], '28px')
+    assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-graph-view').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.className?.startsWith?.('dsh-git-graph-node')).length, 1)
   } finally { f.dispose() }
 })

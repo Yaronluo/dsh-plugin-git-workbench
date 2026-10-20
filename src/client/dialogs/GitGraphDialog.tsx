@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import type { ComponentType, FunctionComponent } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { ComponentType, CSSProperties, FunctionComponent } from 'react'
 import type { GitGraphCommit } from '../../core/types.js'
 import type { CommitDetailDialogProps } from './CommitDetailDialog.js'
 import { gitApi } from '../api.js'
@@ -7,6 +7,20 @@ import { computeGraph } from '../graph.js'
 import { IconHistory, IconRefresh } from '../icons.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
 import { GitLoadingState } from '../loading-state.js'
+
+/** Horizontal distance between two lane centres, and from the left edge to the first one. */
+const LANE_STEP = 14
+const LANE_INSET = 7
+/** Diameter of the commit dot; it is a CSS circle so it stays round at any zoom. */
+const NODE_SIZE = 8
+
+const laneCenter = (column: number): number => LANE_INSET + column * LANE_STEP
+const laneClass = (column: number): string => `dsh-git-lane-${column % 8}`
+
+/** Compare measured row centres so a resize observer that reports the same layout stops. */
+function sameCentres(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((value, index) => Math.abs(value - right[index]) < 0.5)
+}
 
 function renderErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
@@ -139,6 +153,75 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
 
   const graphRows = computeGraph(commits.map(commit => ({ ...commit, parents: commit.parents ?? [] })))
 
+  // Every row reserves the widest lane count so the subjects line up in one column, and a
+  // single canvas draws the whole graph. Drawing one canvas per row used to stop each lane
+  // at its own row edge, which is what turned a branch into a column of short dashes.
+  const gutter = graphRows.reduce((widest, row) => Math.max(widest, row.width), 1) * LANE_STEP + LANE_STEP
+  const viewRef = useRef<HTMLDivElement | null>(null)
+  const [graphLayout, setGraphLayout] = useState<{ centres: number[]; height: number }>({ centres: [], height: 0 })
+
+  useLayoutEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    let frame = 0
+    const measure = () => {
+      const rows = Array.from(view.querySelectorAll<HTMLElement>('.dsh-git-graph-row'))
+      // Measure against the canvas container, not the scrolling list: both the rows and the
+      // overlay live in the same content box, so the result does not move when the list scrolls.
+      const origin = view.getBoundingClientRect()
+      const rects = rows.map(row => row.getBoundingClientRect())
+      // A hidden list (commit detail open) measures as zero: keep the previous canvas.
+      if (rects.length === 0 || rects.some(rect => rect.height === 0)) return
+      const centres = rects.map(rect => rect.top - origin.top + rect.height / 2)
+      const height = rects[rects.length - 1].bottom - origin.top
+      setGraphLayout(previous => sameCentres(previous.centres, centres) && Math.abs(previous.height - height) < 0.5
+        ? previous
+        : { centres, height })
+    }
+    const schedule = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => { frame = 0; measure() })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(schedule)
+    observer.observe(view)
+    for (const row of Array.from(view.querySelectorAll<HTMLElement>('.dsh-git-graph-row'))) observer.observe(row)
+    return () => {
+      observer.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [commits, activeTab, selectedCommit])
+
+  const lanes: Array<{ key: string; className: string; path: string }> = []
+  if (graphLayout.centres.length === graphRows.length) {
+    graphRows.forEach((row, index) => {
+      const centre = graphLayout.centres[index]
+      const next = graphLayout.centres[index + 1]
+      const nextColumns = graphRows[index + 1]?.columns ?? []
+      const last = index === graphRows.length - 1
+      row.columns.forEach((hash, column) => {
+        if (!hash) return
+        const x = laneCenter(column)
+        // Lanes enter the list from above on the first row, and leave it at the last row,
+        // so the graph reads as one continuous picture instead of per-row stubs.
+        const start = index === 0 ? 0 : centre
+        const end = last ? graphLayout.height : nextColumns[column] ? next : centre
+        if (end > start) lanes.push({ key: `lane-${index}-${column}`, className: laneClass(column), path: `M${x} ${start}L${x} ${end}` })
+      })
+      for (const parent of row.parents) {
+        if (parent.column === row.column || next === undefined) continue
+        const from = laneCenter(row.column)
+        const to = laneCenter(parent.column)
+        const middle = (centre + next) / 2
+        lanes.push({
+          key: `edge-${index}-${parent.column}-${parent.hash}`, className: laneClass(parent.column),
+          path: `M${from} ${centre}C${from} ${middle} ${to} ${middle} ${to} ${next}`,
+        })
+      }
+    })
+  }
+
   return <section className='dsh-git-history-panel' aria-label='提交记录'>
     <div className='dsh-git-changes-header'>
       <div className='dsh-git-repo-row'>
@@ -160,7 +243,8 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
           onClick={() => { setActiveTab('reflog'); setSelectedCommit(null) }}>引用日志</button>
       </div>
     </div>
-    <div className='dsh-git-history-list'>
+    <div className='dsh-git-history-list'
+      style={{ '--dsh-git-graph-gutter': `${gutter}px` } as CSSProperties}>
       {activeTab === 'reflog' ? ReflogPanel ? <ReflogPanel path={path} />
         : reflogLoadError ? <>
           <p className='dsh-git-error' role='alert'>{reflogLoadError}</p>
@@ -168,7 +252,13 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
             onClick={() => setReflogLoadAttempt(value => value + 1)}>重试加载引用日志</button>
         </>
         : <div className='dsh-git-muted'>正在加载引用日志视图…</div> : <>
-      <div hidden={selectedCommit !== null}>
+      <div className='dsh-git-graph-view' ref={viewRef} hidden={selectedCommit !== null}>
+        {lanes.length > 0 && <svg className='dsh-git-graph-backdrop' width={gutter} height={graphLayout.height}
+          viewBox={`0 0 ${gutter} ${graphLayout.height}`} aria-hidden='true'>
+          {lanes.map(lane => <g key={lane.key} className={lane.className}>
+            <path d={lane.path} fill='none' stroke='currentColor' strokeWidth={2} strokeLinecap='round' />
+          </g>)}
+        </svg>}
         {error ? <div className='dsh-git-empty-state'>
           <div className='dsh-git-state-icon'><IconHistory size={24} /></div><strong>无法读取提交记录</strong>
           <p className='dsh-git-state-error' role='alert'>{error}</p>
@@ -181,7 +271,6 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
           </div>
           : graphRows.map(row => {
             const commit = row.commit
-            const graphWidth = row.width * 14 + 14
             return <div key={commit.hash} className='dsh-git-graph-row' role='button' tabIndex={0}
               aria-label={`查看提交 ${commit.shortHash} ${commit.subject}`}
               onClick={() => setSelectedCommit(commit.hash)}
@@ -191,21 +280,9 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
                   setSelectedCommit(commit.hash)
                 }
               }}>
-              <article className='dsh-git-history-item' style={{ display: 'flex', alignItems: 'stretch', gap: 8, flex: 1, minWidth: 0 }}>
-                <svg className='dsh-git-graph-canvas' width={graphWidth} height={34}
-                  viewBox={`0 0 ${graphWidth} 34`} style={{ width: graphWidth }} aria-hidden='true'>
-                  {row.columns.map((_, lane) => <g key={`lane-${lane}`} className={'dsh-git-lane-' + (lane % 8)}>
-                    <line x1={lane * 14 + 7} y1={0} x2={lane * 14 + 7} y2={34} stroke='currentColor' strokeWidth={2} />
-                  </g>)}
-                  {row.parents.map((parent, index) => <g key={`parent-${parent.hash}-${index}`}
-                    className={'dsh-git-lane-' + (parent.column % 8)}>
-                    <path d={`M ${row.column * 14 + 7} 17 L ${parent.column * 14 + 7} 34`}
-                      fill='none' stroke='currentColor' strokeWidth={2} />
-                  </g>)}
-                  <g className={'dsh-git-lane-' + (row.column % 8)}>
-                    <circle className='dsh-git-graph-dot' r={3.5} cx={row.column * 14 + 7} cy={17} />
-                  </g>
-                </svg>
+              <span className={`dsh-git-graph-node ${laneClass(row.column)}`}
+                style={{ left: laneCenter(row.column) - NODE_SIZE / 2 }} aria-hidden='true' />
+              <article className='dsh-git-history-item'>
                 <div className='dsh-git-graph-copy'>
                   <div className='dsh-git-graph-subject'>{commit.subject}</div>
                   <div className='dsh-git-graph-meta'>
