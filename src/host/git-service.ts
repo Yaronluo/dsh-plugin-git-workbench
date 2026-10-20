@@ -191,9 +191,14 @@ export class GitService {
   }
 
   /** Runs a mutating command and reports Git's own message instead of throwing. */
-  private async action(args: string[], root: string, options: { timeoutMs?: number; stdin?: string } = {}): Promise<ActionResult> {
+  private async action(args: string[], root: string, options: { timeoutMs?: number; stdin?: string; includeStderr?: boolean } = {}): Promise<ActionResult> {
     const result = await this.runner.run(args, root, undefined, { timeoutMs: options.timeoutMs, stdin: options.stdin })
-    if (result.exitCode === 0) return { ok: true, output: result.stdout.trim() || undefined }
+    if (result.exitCode === 0) {
+      // `git worktree prune --verbose` prints what it removed on stderr, so some
+      // callers need that stream as the report instead of stdout.
+      const output = [result.stdout, options.includeStderr ? result.stderr : ''].join('\n').trim()
+      return { ok: true, output: output || undefined }
+    }
     return { ok: false, error: (result.stderr.trim() || result.stdout.trim()) || `git ${args[0]} 失败（退出码 ${result.exitCode}）` }
   }
 
@@ -1103,7 +1108,7 @@ export class GitService {
   async pruneWorktrees(cwd: string, options: { dryRun?: boolean } = {}): Promise<ActionResult> {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
-      return this.action(['worktree', 'prune', ...(options.dryRun ? ['--dry-run'] : []), '--verbose'], root)
+      return this.action(['worktree', 'prune', ...(options.dryRun ? ['--dry-run'] : []), '--verbose'], root, { includeStderr: true })
     })
   }
 

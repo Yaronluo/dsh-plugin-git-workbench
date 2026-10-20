@@ -242,6 +242,8 @@ export function parseWorktrees(stdout: string, currentPath: string): WorktreeIte
       if (line.startsWith('HEAD ')) item.head = line.slice(5, 12)
       else if (line.startsWith('branch refs/heads/')) item.branch = line.slice(18)
       else if (line === 'locked' || line.startsWith('locked ')) { item.locked = true; item.lockedReason = line.slice(7) || undefined }
+      else if (line === 'detached') item.detached = true
+      else if (line === 'prunable' || line.startsWith('prunable ')) item.prunable = true
     }
   }
   return items

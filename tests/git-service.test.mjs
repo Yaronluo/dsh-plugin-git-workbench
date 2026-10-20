@@ -129,6 +129,26 @@ test('clean worktree removal succeeds but untracked-only worktree removal is ref
   assert.equal(await readFile(join(untracked.path, 'only-local.txt'), 'utf8'), 'must survive\n')
 })
 
+test('prune preview reports stale worktrees that Git logs on stderr, and pruning clears them', async t => {
+  const { root, service } = await fixture(t)
+  const added = await service.createWorktree(root, 'stale', 'HEAD')
+  assert.equal(added.ok, true, added.error)
+  await rm(added.path, { recursive: true, force: true })
+
+  const listed = (await service.worktrees(root)).find(item => resolve(item.path) === resolve(added.path))
+  assert.equal(listed.prunable, true)
+
+  const preview = await service.pruneWorktrees(root, { dryRun: true })
+  assert.equal(preview.ok, true)
+  assert.match(preview.output || '', /stale|non-existent/)
+  // A dry run must leave the registration in place.
+  assert.equal((await service.worktrees(root)).some(item => resolve(item.path) === resolve(added.path)), true)
+
+  const pruned = await service.pruneWorktrees(root)
+  assert.equal(pruned.ok, true)
+  assert.equal((await service.worktrees(root)).some(item => resolve(item.path) === resolve(added.path)), false)
+})
+
 test('unborn HEAD diff includes staged and recursive untracked UTF-8/binary/empty files accurately', async t => {
   const { root, service } = await fixture(t, false)
   await writeFile(join(root, 'staged.txt'), 'staged\n')

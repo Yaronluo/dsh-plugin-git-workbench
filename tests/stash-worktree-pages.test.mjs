@@ -88,6 +88,8 @@ test('工作树强制移除只在二次确认区显式启用且默认关闭', ()
   assert.match(worktreeSource, /pendingDelete === worktree\.path && <div className='dsh-git-section' role='group' aria-label='确认移除工作树'>[\s\S]*?checked=\{forceDelete\}[\s\S]*?可能丢弃未提交改动[\s\S]*?确认强制移除工作树/)
   assert.equal(worktreeSource.match(/checked=\{forceDelete\}/g)?.length, 1)
   assert.match(worktreeSource, /pruneOutput !== null[\s\S]*?确认清理失效工作树/)
+  assert.match(worktreeSource, /setPruneReady\(!!output\)/)
+  assert.match(worktreeSource, /只有工作树目录被手动删除或移走后/)
 })
 
 test('储藏删除仍需二次确认，预览与应用操作保留具名按钮', () => {

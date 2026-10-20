@@ -166,8 +166,9 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
         setActionError(result.error || '清理预览失败')
         return
       }
-      setPruneOutput(result.output || '没有可清理的失效工作树。')
-      setPruneReady(true)
+      const output = result.output?.trim() || ''
+      setPruneOutput(output || '没有可清理的失效工作树。')
+      setPruneReady(!!output)
     } catch (pruneError) { setActionError(message(pruneError)) }
     finally { if (alive.current) setBusy(null) }
   }
@@ -196,6 +197,7 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     {pruneOutput !== null && <div className='dsh-git-section'>
       <div className='dsh-git-section-head'>清理预览</div>
       <pre className='dsh-git-code-box'>{pruneOutput}</pre>
+      {!pruneReady && <div className='dsh-git-muted' style={{ fontSize: 13 }}>只有工作树目录被手动删除或移走后，Git 才会留下失效登记；正常从本页移除不会产生残留。</div>}
       {pruneReady && <div className='dsh-git-panel-toolbar'>
         <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={!!busy} onClick={() => void confirmPrune()}>{busy === 'prune' ? '正在清理…' : '确认清理失效工作树'}</button>
         <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => { setPruneOutput(null); setPruneReady(false) }}>取消</button>

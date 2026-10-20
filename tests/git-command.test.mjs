@@ -58,6 +58,16 @@ test('worktree paths normalize Windows separators/case but preserve POSIX case; 
   assert.equal(parseWorktrees('worktree /Repo\nHEAD abcdef123\n\n', '/repo')[0].isCurrent, false)
 })
 
+test('worktree porcelain marks prunable and detached entries only where Git reports them', () => {
+  const items = parseWorktrees([
+    'worktree /repo', 'HEAD abcdef123', 'branch refs/heads/main', '',
+    'worktree /repo/gone', 'HEAD abcdef123', 'branch refs/heads/wt/gone', 'prunable gitdir file points to non-existent location', '',
+    'worktree /repo/peeled', 'HEAD abcdef123', 'detached', '',
+  ].join('\n'), '/repo')
+  assert.deepEqual(items.map(item => [item.prunable, item.detached]), [[undefined, undefined], [true, undefined], [undefined, true]])
+  assert.equal(items[1].branch, 'wt/gone')
+})
+
 test('NUL log protocol preserves pipes and record boundaries', () => {
   const commits = parseLog(['a'.repeat(40), 'aaaaaaa', 'subject | pipe', 'author | name', '2 days ago', '', 'HEAD -> main', 'b'.repeat(40), 'bbbbbbb', 'second', 'person', 'now', 'a'.repeat(40), '', ''].join('\0'))
   assert.equal(commits.length, 2)
