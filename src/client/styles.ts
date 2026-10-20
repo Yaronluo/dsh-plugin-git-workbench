@@ -237,6 +237,13 @@ export const STYLES = `
 [data-conversation-content]:has(> [data-conversation-scroll] > [data-composer-seat] .dsh-git-workbench) > [data-conversation-scroll] > [data-composer-seat]:has(.dsh-git-workbench) { display: flex; flex: 1 1 auto; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 [data-conversation-content] > [data-conversation-scroll]:has(> [data-composer-seat] .dsh-git-workbench) > :not([data-composer-seat]) { display: none; }
 .dsh-git-workbench { display: flex; flex: 1 1 auto; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
+/* The chat column's width handle resizes the conversation, and its ::after is a 2px bar in a flat
+   light gray that fades out at both ends. Over the workbench the column cannot usefully be resized
+   (the panel fills it edge to edge), so the whole affordance is switched off while the panel is
+   mounted: the drag never starts, the resize cursor is gone, and the gray bar stops painting. The
+   host's class hash changes between builds, so match on the CSS-module name instead. */
+:root:has(.dsh-git-workbench) [class*='_widthHandle'] { pointer-events: none !important; }
+:root:has(.dsh-git-workbench) [class*='_widthHandle']::after { opacity: 0 !important; transition: none !important; }
 .dsh-git-workbench-header { box-sizing: border-box; display: flex; flex: 0 0 48px; align-items: center; gap: 16px; width: 100%; height: 48px; min-width: 0; min-height: 48px; padding: 0 24px; overflow: hidden; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
 .dsh-git-workbench-header > :first-child { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; font-size: 14px; font-weight: 600; }
 .dsh-git-workbench-header > :nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary); text-overflow: ellipsis; white-space: nowrap; }

@@ -125,6 +125,21 @@ test('worktree labels share the panel size and form controls inherit the UI fami
   assert.match(STYLES, /:where\(\.dsh-git-sidebar-content, \.dsh-git-modal-card, \.dsh-git-popover\) :where\(button, input, select, textarea\) \{ font-family: inherit; \}/)
 })
 
+test('the chat column width handle is disabled over the workbench pane', async () => {
+  const { STYLES } = await loadTs('src/client/styles.ts')
+  assert.match(
+    STYLES,
+    /:root:has\(\.dsh-git-workbench\) \[class\*='_widthHandle'\] \{ pointer-events: none !important; \}/,
+    'the drag must not start and the resize cursor must not appear over the panel',
+  )
+  assert.match(
+    STYLES,
+    /:root:has\(\.dsh-git-workbench\) \[class\*='_widthHandle'\]::after \{ opacity: 0 !important; transition: none !important; \}/,
+    'nor may its 2px gray bar paint over the panel',
+  )
+  assert.doesNotMatch(STYLES, /data-dockkit-divider/, 'the dock never renders those attributes in the live DOM')
+})
+
 test('the full-page workbench fills only its conversation and leaves a wide diff above the commit footer', async () => {
   const { STYLES, runtimeFontRule } = await loadTs('src/client/styles.ts')
 
