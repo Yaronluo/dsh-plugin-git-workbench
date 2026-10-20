@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-git-workbench",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "A community Git workbench for DeepSeek Harness: branches, diffs, commits, stashes, worktrees, and AI draft collaboration.",
   "license": "MIT",
   "author": "Yaronluo",
