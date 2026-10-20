@@ -8,7 +8,7 @@ import { GitPanelContext } from './panel-context.js'
 import { useGitStatus } from '../hooks/use-git-status.js'
 import { IconBranchPlus, IconDiff, IconFolderTree, IconHistory, IconStash } from '../icons.js'
 import { GitLoadingState } from '../loading-state.js'
-import { collectPanelDiagnostics, reportClientState } from '../diagnostics.js'
+import { collectOverlayDiagnostics, collectPanelDiagnostics, reportClientState } from '../diagnostics.js'
 import {
   GIT_PANEL_TITLES, GIT_VIEW_ENTRIES, activeGitView, isGitPanelView, setActiveGitView, subscribeGitView,
   type GitPanelView,
@@ -90,11 +90,13 @@ export function GitSidebarPanel(props: any) {
   const finish = (next: GitPanelView) => { select(next); setReloadKey(value => value + 1) }
 
   // The panel is the only place the font cascade can be observed as the user sees it, so it
-  // reports its own measurement once per rendered page (see diagnostics.ts).
+  // reports its own measurement once per rendered page (see diagnostics.ts). The slower second
+  // report names whatever the shell still paints above the panel, which a screenshot cannot.
   const rootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const timer = setTimeout(() => reportClientState('panel', collectPanelDiagnostics(rootRef.current)), 300)
-    return () => clearTimeout(timer)
+    const overlay = setTimeout(() => reportClientState('overlay', undefined, collectOverlayDiagnostics(rootRef.current)), 1200)
+    return () => { clearTimeout(timer); clearTimeout(overlay) }
   }, [view, cwd])
 
   const page = (() => {
