@@ -25,12 +25,14 @@ const iconsStub = `
 export const IconExternalLink = () => null
 export const IconChevronDown = () => null
 export const IconFile = () => null
+export const IconFolderTree = () => null
 `
 const apiStub = `
 const api = () => globalThis.__editorMenuHarness.api
 export const gitApi = {
   listEditors: (...args) => api().listEditors(...args),
   openInEditor: (...args) => api().openInEditor(...args),
+  reveal: (...args) => api().reveal(...args),
 }
 export const errorMessage = error => (error && error.message) || String(error)
 `
@@ -96,8 +98,8 @@ const pending = harness.pending
 
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
-function fixture({ editors = [{ command: 'code', label: 'VS Code', goto: true }, { command: 'zed', label: 'Zed', goto: false }], listEditors, open } = {}) {
-  const calls = { listEditors: 0, openInEditor: [] }
+function fixture({ editors = [{ command: 'code', label: 'VS Code', goto: true }, { command: 'zed', label: 'Zed', goto: false }], listEditors, open, reveal } = {}) {
+  const calls = { listEditors: 0, openInEditor: [], reveal: [] }
   const notices = []
   harness.api = {
     listEditors: async () => listEditors ? listEditors() : (calls.listEditors++, editors),
@@ -105,6 +107,11 @@ function fixture({ editors = [{ command: 'code', label: 'VS Code', goto: true },
       calls.openInEditor.push([repo, file, line, editor])
       if (open) return open(repo, file, line, editor)
       return { ok: true, editor: editor === 'system' ? undefined : editor === 'zed' ? 'Zed' : 'VS Code', target: file }
+    },
+    reveal: async (repo, file) => {
+      calls.reveal.push([repo, file])
+      if (reveal) return reveal(repo, file)
+      return { ok: true, target: file }
     },
   }
   harness.slots = []
@@ -190,8 +197,11 @@ test('opening the menu lists the editors the host really found, plus the system 
   const f = fixture()
   await f.click(triggerOf(f.tree))
   const options = optionsOf(f.tree)
-  assert.deepEqual(options.map(labelOf), ['VS Code', 'Zed', '系统默认应用'])
-  assert.deepEqual(options.slice(0, 2).map(option => nodes(option, node => node.type === 'small')[0].props.children), ['code', 'zed'])
+  assert.deepEqual(options.map(labelOf), ['系统默认应用', 'VS Code', 'Zed', '显示文件位置'])
+  // The OS association leads, tagged the way Windows 11 tags the double-click handler.
+  assert.deepEqual(nodes(options[0], node => node.type === 'span').map(node => node.props.children), ['系统默认应用', '（默认）'])
+  // The command is no longer a second column of the row; it waits in the tooltip.
+  assert.deepEqual(options.slice(1, 3).map(option => option.props.title), ['code', 'zed'])
   assert.equal(f.calls.listEditors, 1)
   assert.equal(nodes(f.tree, node => node.props?.role === 'status').length, 0)
   assert.equal(triggerOf(f.tree).props['aria-expanded'], true)
@@ -215,12 +225,29 @@ test('the system default application is an explicit entry that asks for no edito
   assert.deepEqual(f.notices.at(-1), { ok: true, text: '已用系统默认应用打开：src/a.ts' })
 })
 
+test('the footer reveals the file in the file manager instead of opening it in an editor', async () => {
+  const f = fixture()
+  await f.click(triggerOf(f.tree))
+  await f.click(optionByLabel(f.tree, '显示文件位置'))
+  assert.deepEqual(f.calls.reveal, [['D:/repo', 'src/a.ts']])
+  assert.deepEqual(f.calls.openInEditor, [])
+  assert.deepEqual(f.notices.at(-1), { ok: true, text: '已在文件管理器中显示：src/a.ts' })
+  assert.equal(menuCount(f.tree), 0)
+})
+
+test('a refused reveal shows the host reason instead of pretending it opened', async () => {
+  const f = fixture({ reveal: async () => ({ ok: false, error: '无法打开文件管理器' }) })
+  await f.click(triggerOf(f.tree))
+  await f.click(optionByLabel(f.tree, '显示文件位置'))
+  assert.deepEqual(f.notices.at(-1), { ok: false, text: '无法打开文件管理器' })
+})
+
 test('a machine without editor CLIs still opens something and says so', async () => {
   const f = fixture({ editors: [] })
   await f.click(triggerOf(f.tree))
   const hint = nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-editor-hint'))[0]
   assert.match(textOf(hint), /没有检测到编辑器命令行/)
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用'])
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', '显示文件位置'])
 })
 
 test('a refused open shows the host reason instead of pretending it opened', async () => {
@@ -243,14 +270,14 @@ test('a failing probe is shown, keeps the usable entry, and is retried on reopen
   const alert = nodes(f.tree, node => node.props?.role === 'alert')
   assert.equal(alert.length, 1)
   assert.match(textOf(alert[0]), /PATH 读取失败/)
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用'])
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', '显示文件位置'])
 
   await f.keyDown(f.tree, 'Escape')
   assert.equal(menuCount(f.tree), 0)
 
   f.setApi({ listEditors: async () => [{ command: 'zed', label: 'Zed', goto: false }] })
   await f.click(triggerOf(f.tree))
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['Zed', '系统默认应用'])
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', 'Zed', '显示文件位置'])
 })
 
 test('the host is asked once per session, not on every render', async () => {
@@ -282,15 +309,16 @@ test('the application icon from the host wins over the drawn mark', async () => 
   ] })
   await f.click(triggerOf(f.tree))
   const options = optionsOf(f.tree)
-  const image = nodes(options[0], node => node.type === 'img')[0]
+  // The default association leads the list and is not an editor, so the icons start after it.
+  const image = nodes(options[1], node => node.type === 'img')[0]
   assert.equal(image.props.src, icon)
   assert.equal(image.props.className, 'dsh-git-editor-mark dsh-git-editor-mark-image')
   assert.equal(image.props.alt, '')
   assert.equal(image.props.width, 16)
   // An editor whose icon the host could not read still gets its own mark.
-  assert.equal(nodes(options[0], node => node.type?.name === 'EditorMark').length, 0)
-  assert.equal(nodes(options[1], node => node.type?.name === 'EditorMark').length, 1)
-  assert.equal(nodes(options[1], node => node.type === 'img').length, 0)
+  assert.equal(nodes(options[1], node => node.type?.name === 'EditorMark').length, 0)
+  assert.equal(nodes(options[2], node => node.type?.name === 'EditorMark').length, 1)
+  assert.equal(nodes(options[2], node => node.type === 'img').length, 0)
 })
 
 test('every entry carries its own mark instead of one generic icon', async () => {
@@ -301,15 +329,16 @@ test('every entry carries its own mark instead of one generic icon', async () =>
   await f.click(triggerOf(f.tree))
   const marks = optionsOf(f.tree).map(option => nodes(option, node => node.type?.name === 'EditorMark')[0])
   const rendered = marks.map(mark => mark && EditorMark(mark.props))
+  // The default association and the reveal action keep plain icons: neither is an editor.
+  assert.equal(marks[0], undefined)
+  assert.equal(marks[3], undefined)
   // VS Code gets its real ribbon, in its own blue…
-  assert.equal(rendered[0].type, 'svg')
-  assert.match(rendered[0].props.className, /dsh-git-editor-mark-glyph/)
-  assert.equal(nodes(rendered[0], node => node.type === 'path')[0].props.fill, '#007ACC')
+  assert.equal(rendered[1].type, 'svg')
+  assert.match(rendered[1].props.className, /dsh-git-editor-mark-glyph/)
+  assert.equal(nodes(rendered[1], node => node.type === 'path')[0].props.fill, '#007ACC')
   // …while a JetBrains product gets its monogram square.
-  assert.deepEqual(rendered[1].props.children, 'IJ')
-  assert.equal(rendered[1].props.style.background, '#FE2858')
-  // The system default keeps the document icon: it is not an editor.
-  assert.equal(marks[2], undefined)
+  assert.deepEqual(rendered[2].props.children, 'IJ')
+  assert.equal(rendered[2].props.style.background, '#FE2858')
 })
 
 test('a command we do not know still gets stable initials and a theme-toned tile', () => {

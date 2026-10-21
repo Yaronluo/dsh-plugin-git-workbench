@@ -689,19 +689,20 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
   t.after(() => page.close())
   await page.waitForSelector('.dsh-git-open-editor')
   await page.click('.dsh-git-open-editor')
-  await page.waitForFunction(() => document.querySelectorAll('.dsh-git-editor-option[role="menuitem"]').length === 4)
+  await page.waitForFunction(() => document.querySelectorAll('.dsh-git-editor-option[role="menuitem"]').length === 5)
   await page.waitForFunction(() => [...document.querySelectorAll('img.dsh-git-editor-mark-image')].every(image => image.complete && image.naturalWidth > 0))
   const menu = await page.evaluate(() => {
     const entries = [...document.querySelectorAll('.dsh-git-editor-option[role="menuitem"]')]
     return {
       labels: entries.map(entry => entry.textContent.trim()),
-      commands: entries.map(entry => entry.querySelector('small')?.textContent.trim() || ''),
+      titles: entries.map(entry => entry.getAttribute('title') || ''),
+      tag: document.querySelector('.dsh-git-editor-option .dsh-git-editor-tag')?.textContent || '',
       stuckLoading: document.querySelector('.dsh-git-editor-menu')?.textContent.includes('正在检测已安装的编辑器…') || false,
       icons: [...document.querySelectorAll('img.dsh-git-editor-mark-image')].map(image => ({
         src: image.getAttribute('src'), width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height,
       })),
       noIconMark: [...entries].find(entry => entry.textContent.includes('IntelliJ IDEA'))?.querySelector('.dsh-git-editor-mark, svg') !== null,
-      marks: entries.filter(entry => !entry.textContent.includes('系统默认应用')).map(entry => {
+      marks: entries.filter(entry => !entry.textContent.includes('系统默认应用') && !entry.textContent.includes('显示文件位置')).map(entry => {
         const mark = entry.querySelector(':scope > .dsh-git-editor-mark, :scope > svg')
         const label = [...entry.querySelectorAll(':scope > span')].find(node => !node.classList.contains('dsh-git-editor-mark'))
         return { width: mark?.getBoundingClientRect().width, height: mark?.getBoundingClientRect().height, label: label?.textContent.trim(), labelClient: label?.clientWidth, labelScroll: label?.scrollWidth }
@@ -709,14 +710,16 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
       probeCalls: window.__gitData.editorProbeCalls,
     }
   })
-  check.equal(menu.labels.length, 4)
+  check.equal(menu.labels.length, 5)
+  check.equal(menu.tag, '（默认）', 'the OS association leads the list and carries the Windows 11 default tag')
+  check.ok(menu.titles.includes(pathShim), 'the PATH-first code.cmd command returned by the host stays reachable as the row tooltip')
   check.ok(menu.labels.some(label => label.includes('Visual Studio Code')))
   check.equal(menu.labels.filter(label => label.includes('Visual Studio Code')).length, 1, 'the host-provided PATH-first shim result is rendered once')
-  check.ok(menu.commands.includes(pathShim), 'the UI displays the PATH-first code.cmd command returned by the host')
   check.equal(menu.stuckLoading, false, 'the probe result is not stuck in its loading state')
   check.ok(menu.labels.some(label => label.includes('WebStorm')))
   check.ok(menu.labels.some(label => label.includes('IntelliJ IDEA')))
-  check.ok(menu.labels.some(label => label.includes('系统默认应用')))
+  check.ok(menu.labels.some(label => label === '系统默认应用（默认）'))
+  check.ok(menu.labels.some(label => label === '显示文件位置'), 'the footer row reveals the file instead of opening it')
   check.equal(menu.icons.length, 2)
   check.equal(menu.icons[0].src, iconA)
   check.equal(menu.icons[1].src, iconB)
@@ -747,7 +750,7 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
   await page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
   await page.waitForSelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')
   await page.click('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')
-  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.querySelectorAll('.dsh-git-editor-option').length === 4)
+  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.querySelectorAll('.dsh-git-editor-option').length === 5)
   check.equal(await page.evaluate(() => window.__gitData.editorProbeCalls), 2, 'the history-toolbar control is a separate mounted component and probes once')
   check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true)
   await page.keyboard.press('Escape')

@@ -285,7 +285,7 @@ node --check lib/client.js
 
 当前工具没有已登录页面的浏览器交互/截图控制能力；自动测试不等于真实页面、焦点或主题验收。
 
-> 这 16 条已于 2026-10-17 由机器执行完毕（真实组件 + 真实宿主 + 本机真实探测），逐条结论、发现的一处真实差距与两处条文订正见文末「第十二轮」。机器证明不了的残余边界也列在那一轮里。
+> 这 16 条已于 2026-10-17 由机器执行完毕（真实组件 + 真实宿主 + 本机真实探测），逐条结论、发现的一处真实差距与两处条文订正见文末「第十二轮」。机器证明不了的残余边界也列在那一轮里。第 10 条已在第十六轮按新版浮层重写；那一轮的浏览器断言同步改了，但本机缺验收前置文件没跑，详见该轮的观察项。
 
 建议在一个可丢弃的测试仓库中进行：
 
@@ -298,11 +298,11 @@ node --check lib/client.js
 7. 浅色/深色各检查分支浮层、创建对话框、变更面板、错误提示与增删行；检查窗口窄屏时浮层位置和滚动。
 8. 分支浮层：与上游完全同步时不再出现「领先 0 个提交，落后 0 个提交」；与本地同名的远程分支（已有本地 `master` 时的 `origin/master`）不再出现，而 `git fetch` 后新增的、无本地对应的远程分支仍能点击检出；有储藏时储藏徽标仍显示。
 9. 变更面板点「更多操作 → 历史」：内联的文件历史视图应立刻占据变更面板主体（即变更面板正文里那层 `.dsh-git-panel-form`），窄侧栏里不被裁切，「历史 / 责任」页签可用，关闭后回到原来的文件列表 + diff，提交框始终贴在面板最下方。（注意：「提交记录」页签里的提交图面板是另一条路径，它会整页替换变更页、不显示提交框，不要拿它来对标本条。）
-10. 点「在编辑器中打开」：应先展开应用内浮层，列出本机真实探测到的编辑器（名称 + 命令）与「系统默认应用」；选某个编辑器就用它打开，选「系统默认应用」才走系统关联。机器上没有任何编辑器 CLI 时，浮层应明确说明并保留「系统默认应用」项；diff 头部与历史对话框工具栏这两处浮层行为一致。
+10. 点「在编辑器中打开」：应先展开应用内浮层，第一行是「系统默认应用（默认）」，其后是本机真实探测到的编辑器（只画应用图标与名称，命令名放进悬停 `title`），最后一行「显示文件位置」用系统文件管理器选中当前文件、而不是打开编辑器；选某个编辑器就用它打开，选「系统默认应用」才走系统关联。机器上没有任何编辑器 CLI 时，浮层应明确说明，并保留「系统默认应用」「显示文件位置」两项；diff 头部与历史对话框工具栏这两处浮层行为一致。
 11. 编辑器没有加入 PATH 的机器（VS Code 用户安装版默认如此）：浮层里仍应列出该编辑器，选中后能用它打开当前文件并定位到行；PATH 里的同名 shim 优先于常见安装位置；`DSH_GIT_EDITOR` 设为绝对路径时，浮层只列这一个。
 12. 变更面板 →「更多操作 → 历史」：点任意一条提交，历史列表应**原位**换成该提交的详情（顶部有「返回」回到同一份文件历史）；切换「历史 / 责任」页签或换一个文件后，不应残留上一条提交的详情；详情分片加载失败时显示错误与「重试加载详情」。
 13. 浮层应列出机器上**实际装着**的编辑器：Windows 上装了 JetBrains 系列时（`%LOCALAPPDATA%\Programs\<产品>\bin`，Toolbox 安装则在 `…\JetBrains\Toolbox\apps` 下）应一并列出 IntelliJ IDEA / WebStorm 等；选 JetBrains 打开带行号的文件时用 `--line <n> <路径>` 定位；同一产品装两遍只出现一次。
-14. 点开编辑器浮层应立即出结果（本机实测：重启后第一次即 ~150ms，图标在宿主启动时已后台预热），不再长时间停在「正在检测已安装的编辑器…」；每一项左侧是**该软件自己的图标**，应与 Windows「打开方式」里看到的一致（VS Code 蓝色的 X 缎带、IntelliJ IDEA / WebStorm / CLion / DataGrip 各自的彩色标记），图标不被拉伸成横条、不被截断；宿主读不到图标时才退回画出来的标记，「系统默认应用」是文档图标。
+14. 点开编辑器浮层应立即出结果（本机实测：重启后第一次即 ~150ms，图标在宿主启动时已后台预热），不再长时间停在「正在检测已安装的编辑器…」；每一项左侧是**该软件自己的图标**，应与 Windows「打开方式」里看到的一致（VS Code 蓝色的 X 缎带、IntelliJ IDEA / WebStorm / CLion / DataGrip 各自的彩色标记），图标不被拉伸成横条、不被截断；宿主读不到图标时才退回画出来的标记，「系统默认应用」是文档图标（右侧带灰色「（默认）」），底部的「显示文件位置」是文件夹图标。
 15. 探测不应拖慢面板：反复打开、关闭浮层不应有卡顿；PATH 很长或装了多个 JetBrains 产品时也应同样快（探测结果在组件内缓存，同一次会话只问宿主一次）。
 16. 分支浮层排版：分支只有一两个时列表贴合内容，不再留一大块空白；点「获取/拉取/推送」后的结果（如「已获取远程更新」）应**独占一整行横排**显示，不能竖排或贴在右边缘；长输出换行而不撑破浮层；错误提示同样占整行且带凭据提示。
 
@@ -383,3 +383,20 @@ node --check lib/client.js
 - **线上核对**：`dist-tags.latest = 1.0.5`（`time['1.0.5'] = 2026-10-18T01:59:26.051Z`）；`npm view dsh-plugin-git-workbench@1.0.5 dist.attestations` → `provenance.predicateType = https://slsa.dev/provenance/v1`，attestation 端点 HTTP 200 / 15,639 字节；**1.0.4 及更早没有 attestation（端点 404）**，因为那些版本是 token 发布的。Release v1.0.5 两个 asset 各 284,746 字节；从 npm 拉下来的 tarball 里 manifest 是 1.0.5、README 含新一节、`lib/*` 各文件字节数与 1.0.4 完全一致（本轮没有代码改动）。
 - **收尾**：仓库里已无引用的 `NPM_TOKEN` secret 已删除（`publish.yml` 里只剩一条解释为何不用它的注释）；npm 侧的 granular token 仍需在 Access Tokens 页撤销，并把该包的 Publishing access 改成「Require two-factor authentication and disallow tokens」。
 - **回归**：`npm run typecheck` 通过；`node --test tests/*.test.mjs`（配临时 `puppeteer-core` + `--test-force-exit`）= **253 条 / 252 通过 / 0 失败 / 1 跳过 / 59.0s**，`ACCEPTANCE_UI_ASSERTIONS=266`。本轮没有 `src/` 改动，运行时行为与 1.0.4 相同。
+
+## 第十六轮截图反馈（「在编辑器中打开」浮层改成 Windows 11「打开方式」的样子）（2026-10-21）
+
+- **现象**：用户给出两张截图。图一是 Windows 11 资源管理器的「打开方式」菜单：第一行是当前默认应用并带「（默认）」，每行只有应用图标与名称，底部一条分隔线后是「显示文件位置」。图二是插件现在的浮层：每行图标 + 名称 + 右对齐的命令名（`code` / `idea` / `webstorm` …），底部是「系统默认应用」。要求「改为图一这种」。
+- **范围**：用户在两个选项里选了「只对齐样式」——保留现有探测到的编辑器清单，**不**枚举注册表里的全部打开方式应用（网盘、播放器等不会出现）；只改浮层的条目顺序、每行信息量与底部动作。
+- **修法**：
+  - `src/client/editor-menu.tsx`：默认动作（系统关联）移到第一行，文档图标 + 「系统默认应用」+ 右侧 12px 灰色的「（默认）」；编辑器行删掉右对齐命令小字，命令移进 `title`（悬停可见），名称独占弹性宽度并按需省略；底部改成「显示文件位置」（文件夹图标），调 `gitApi.reveal(repo, file)`，成功后提示「已在文件管理器中显示：…」，失败原样透出宿主原因。加载中/探测失败/空列表三条提示与 Escape 关闭逻辑不变。
+  - `src/client/styles.ts:124-142`：`.dsh-git-editor-option` 改 `gap: 10px; padding: 9px 10px`；删掉 `.dsh-git-editor-option > span`、`> small`、`> .dsh-git-editor-mark` 三条按元素定位的规则，换成 `.dsh-git-editor-label`（`flex: 1` + 省略号）与 `.dsh-git-editor-tag`（不收缩、12px、`label-secondary`）。菜单宽度、圆角、阴影、分隔线与其余控件未动。
+- **测试**：
+  - `tests/editor-menu.test.mjs` 扩到 16 条：条目顺序 `系统默认应用 → 各编辑器 → 显示文件位置`、「（默认）」标签、命令出现在 `title` 而不是可见文本、底部条目走 `reveal` 且不开编辑器、宿主拒绝时把原因原样显示；图标桩补 `IconFolderTree`——**首次运行就失败在这**（`SyntaxError: The requested module './icons.js' does not provide an export named 'IconFolderTree'`），与第十四轮同一个坑：组件新增图标依赖必须同步测试桩白名单。
+  - `tests/acceptance-ui.test.mjs` 的 Acceptance 10/14 同步成 5 个条目、用 `title` 断言命令、断言「（默认）」标签、marks 过滤掉「显示文件位置」；但**本机没跑**（见观察项 1）。
+- **视觉自检**：`%TEMP%\dsh-editor-menu-preview\compare-light.png`、`compare-dark.png`（1520×1160，2×）。做法：esbuild 打包 HEAD 版与当前版的**真实组件**（HEAD 源码用 `git show` 喂给 esbuild `stdin` + `resolveDir` 指到 `src/client`，旧的 `styles.ts` 同样处理），各自注入对应版本的 `sheetText()` 和从宿主样式里抄出的真实主题令牌，Chrome headless 双 iframe 并排截图。实测浮层 268×275、每行 35px，首项文本「系统默认应用（默认）」，编辑器行只有图标 + 名称，末行「显示文件位置」；深浅两个主题的分隔线、（默认）标签与图标都正确。
+- **观察项**：
+  1. 浏览器验收在本机继续跳过：`tests/acceptance-ui.test.mjs:13-15` 要 `%LOCALAPPDATA%\Programs\DSH Desktop\resources\app\node_modules\@deepseek-ai\dsh-client-ui-conversation\lib\client.js` 与 `…\lib\native-ui\assets\compatibility-chrome-*.css`，本机装的是 `DeepSeek Harness\resources\app.asar`（已确认 asar 内路径为 `dsh\node_modules\…`），全盘也搜不到任何 `compatibility-chrome*.css`；不设 `DSH_DESKTOP_APP_ROOT` 时这 10 条保持跳过，没有伪造通过。
+  2. 浅色主题里 `--dsw-alias-bg-layer-1` 与 `-2` 都是 `#fff`，所以列表行悬停底色（`bg-layer-2`）在浅色下没有可见变化。这是全插件列表行的既有约定，本轮沿用未改，只记录。
+  3. 相对图一，浮层保持面板里的紧凑尺寸（268px 宽、13px 字、35px 行高；Windows 原生菜单约 450px 宽、14px 字、40px 行高），过长名称用省略号截断，完整命令仍在 tooltip 里。
+- **回归**：`pnpm typecheck` 通过；`pnpm build` 重出 `lib/client.js`；`pnpm test` = **269 条 / 252 通过 / 17 跳过 / 0 失败 / 46.8s**（跳过项含上面 10 条浏览器验收与本机不支持的 POSIX FIFO 用例）。本轮只改客户端，**刷新页面即可生效，无需重启 DSH Desktop**。

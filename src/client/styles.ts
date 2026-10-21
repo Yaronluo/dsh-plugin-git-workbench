@@ -121,13 +121,12 @@ export const STYLES = `
 .dsh-git-editor-control { position: relative; display: inline-flex; }
 .dsh-git-editor-backdrop { position: fixed; inset: 0; z-index: 999; }
 .dsh-git-editor-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1000; display: flex; flex-direction: column; gap: 2px; width: 268px; padding: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 11px; background: var(--dsw-alias-bg-layer-1); box-shadow: 0 10px 32px color-mix(in srgb, var(--dsw-alias-bg-overlay) 35%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-bg-overlay) 12%, transparent); }
-.dsh-git-editor-option { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: left; cursor: pointer; }
+.dsh-git-editor-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: left; cursor: pointer; }
 .dsh-git-editor-option:hover { background: var(--dsw-alias-bg-layer-2); }
 .dsh-git-editor-option > svg { flex-shrink: 0; color: var(--dsw-alias-label-secondary); }
-.dsh-git-editor-option > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The mark is a span too, so it must win back the label rule's flex: 1. */
-.dsh-git-editor-option > .dsh-git-editor-mark { flex: 0 0 auto; }
-.dsh-git-editor-option > small { flex-shrink: 0; font-family: ${CODE_FONT}; font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.dsh-git-editor-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Windows 11 tags the association a double click would use; the name keeps the room. */
+.dsh-git-editor-tag { flex: 0 0 auto; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dsh-git-editor-option-split { margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--dsw-alias-border-l1); border-radius: 0 0 7px 7px; }
 .dsh-git-editor-hint { display: flex; align-items: center; padding: 8px 9px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 /* Brand marks carry their own colours in src/client/editor-icons.tsx; an editor we have no mark
