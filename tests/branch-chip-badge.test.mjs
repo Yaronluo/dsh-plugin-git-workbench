@@ -99,12 +99,12 @@ test('upstream counts are drawn as arrow icons, never as a text arrow glued to t
 
   const ahead = badge(markup, 'ahead')
   assert.match(ahead, /<svg[^>]*viewBox="0 0 24 24"/, '领先计数前是图标箭头')
-  assert.match(ahead, /title="领先上游 2 个提交"/)
+  assert.match(ahead, /title=" ahead of upstream 2 commits"/)
   assert.match(ahead, /<\/svg>2$/, '图标后面只跟数字')
 
   const behind = badge(markup, 'behind')
   assert.match(behind, /<svg[^>]*viewBox="0 0 24 24"/, '落后计数前是图标箭头')
-  assert.match(behind, /title="落后上游 1 个提交"/)
+  assert.match(behind, /title=" behind upstream 1 commits"/)
   assert.match(behind, /<\/svg>1$/, '图标后面只跟数字')
 })
 
@@ -112,7 +112,7 @@ test('zero counts still render nothing at all', () => {
   const markup = renderChip({ branch: 'main', ahead: 0, behind: 0, stashCount: 0, dirtyFiles: 0 })
   assert.doesNotMatch(markup, /dsh-git-ahead|dsh-git-behind/)
   assert.doesNotMatch(markup, /[↑↓]/)
-  assert.doesNotMatch(markup, /储藏/)
+  assert.doesNotMatch(markup, /Stashes/)
 })
 
 test('the popover prints only the diverged side, so a lone lead never drags a zero behind it', () => {
@@ -120,21 +120,21 @@ test('the popover prints only the diverged side, so a lone lead never drags a ze
 
   assert.match(markup, /class="dsh-git-diverged"/, '有领先才出现这一行')
   const ahead = badge(markup, 'ahead')
-  assert.match(ahead, /title="领先上游 3 个提交"/)
+  assert.match(ahead, /title=" ahead of upstream 3 commits"/)
   assert.match(ahead, /<svg[^>]*viewBox="0 0 24 24"/, '领先那一侧用图标箭头')
-  assert.match(ahead, /<\/svg>领先 3 个提交$/, '图标后面直接跟文案')
-  assert.doesNotMatch(markup, /落后/, '落后 0 个提交不得出现')
+  assert.match(ahead, /<\/svg>Ahead 3 commits$/, '图标后面直接跟文案')
+  assert.doesNotMatch(markup, /Behind/, '落后 0 个提交不得出现')
   assert.doesNotMatch(markup, /[↑↓]/, '这一行不得再用正文 ↑/↓ 字形')
 })
 
 test('the popover shows both pills when both sides diverge, and no row at all when level', () => {
   const both = renderPopover({ branch: 'main', ahead: 2, behind: 1, stashCount: 0, dirtyFiles: 0 })
-  assert.match(badge(both, 'ahead'), /<svg[^>]*viewBox="0 0 24 24"[^>]*>[\s\S]*<\/svg>领先 2 个提交$/)
-  assert.match(badge(both, 'behind'), /<svg[^>]*viewBox="0 0 24 24"[^>]*>[\s\S]*<\/svg>落后 1 个提交$/)
+  assert.match(badge(both, 'ahead'), /<svg[^>]*viewBox="0 0 24 24"[^>]*>[\s\S]*<\/svg>Ahead 2 commits$/)
+  assert.match(badge(both, 'behind'), /<svg[^>]*viewBox="0 0 24 24"[^>]*>[\s\S]*<\/svg>Behind 1 commits$/)
 
   const level = renderPopover({ branch: 'main', ahead: 0, behind: 0, stashCount: 0, dirtyFiles: 0 })
   assert.doesNotMatch(level, /dsh-git-diverged/, '与上游一致时这一行整行都不渲染')
-  assert.doesNotMatch(level, /领先|落后|储藏/)
+  assert.doesNotMatch(level, /Ahead|Behind|Stashes/)
 })
 
 test('the sheet keeps the badge layout and truncates only the branch name', async () => {

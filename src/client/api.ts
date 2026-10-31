@@ -11,7 +11,7 @@ export function getEndpointUrl(endpoint: string): string {
 export function errorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message
-  return 'Git 请求失败'
+  return 'Git request failed'
 }
 
 async function postJson<T>(endpoint: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -23,14 +23,14 @@ async function postJson<T>(endpoint: string, body: Record<string, unknown>, sign
   })
   let json: any
   try { json = await res.json() } catch {
-    throw new Error(`HTTP ${res.status}: ${res.statusText || '服务器返回了无效响应'}`)
+    throw new Error(`HTTP ${res.status}: ${res.statusText || 'The server returned an invalid response'}`)
   }
   if (!res.ok || json?.ok === false) {
     const error = new Error(json?.error ? errorMessage(json.error) : `HTTP ${res.status}: ${res.statusText}`)
     if (json?.error?.code) Object.assign(error, { code: json.error.code })
     throw error
   }
-  if (json === null || typeof json !== 'object') throw new Error('Git 服务器返回了无效响应')
+  if (json === null || typeof json !== 'object') throw new Error('The Git server returned an invalid response')
   return json.value !== undefined ? json.value : json
 }
 
@@ -278,9 +278,9 @@ export const gitApi = {
     })
     source.addEventListener('status-error', (event: MessageEvent) => {
       try { onError?.(new Error(errorMessage(JSON.parse(event.data).error))) }
-      catch { onError?.(new Error('Git 状态更新失败')) }
+      catch { onError?.(new Error('Failed to update Git status')) }
     })
-    source.onerror = () => onError?.(new Error('Git 实时连接中断，正在重连'))
+    source.onerror = () => onError?.(new Error('The live Git connection was interrupted; reconnecting'))
     return () => source.close()
   },
 }

@@ -25,7 +25,7 @@ export function ReflogPanel({ path }: { path: string }) {
     gitApi.getReflog(path, 100, controller.signal).then(result => {
       if (!controller.signal.aborted) setEntries(result)
     }).catch(reason => {
-      if (!controller.signal.aborted) setError(errorText(reason, '读取引用日志失败'))
+      if (!controller.signal.aborted) setError(errorText(reason, 'Failed to read reflog'))
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [path, refresh])
@@ -34,10 +34,10 @@ export function ReflogPanel({ path }: { path: string }) {
     if (!pending) return
     try {
       await navigator.clipboard.writeText(pending.hash)
-      setNotice('已复制提交 hash')
+      setNotice('Copied commit hash')
       setError(null)
     } catch (reason) {
-      setError(errorText(reason, '复制 hash 失败'))
+      setError(errorText(reason, 'Failed to copy hash'))
     }
   }
 
@@ -48,14 +48,14 @@ export function ReflogPanel({ path }: { path: string }) {
     try {
       const result = await gitApi.resetTo(path, pending.selector, 'soft')
       if (!result.ok) {
-        setError(result.error || '软重置失败')
+        setError(result.error || 'Soft reset failed')
         return
       }
-      setNotice(`已软重置到 ${pending.selector}`)
+      setNotice(`Soft reset to ${pending.selector}`)
       setPending(null)
       setRefresh(value => value + 1)
     } catch (reason) {
-      setError(errorText(reason, '软重置失败'))
+      setError(errorText(reason, 'Soft reset failed'))
     } finally {
       setBusy(false)
     }
@@ -64,8 +64,8 @@ export function ReflogPanel({ path }: { path: string }) {
   return <div className='dsh-git-scroll-list'>
     {notice && <p className='dsh-git-muted' role='status'>{notice}</p>}
     {error && <p className='dsh-git-error' role='alert'>{error}</p>}
-    {loading ? <div className='dsh-git-muted'>正在读取引用日志…</div>
-      : entries.length === 0 ? <div className='dsh-git-empty-state'>暂无引用日志</div>
+    {loading ? <div className='dsh-git-muted'>Reading reflog…</div>
+      : entries.length === 0 ? <div className='dsh-git-empty-state'>No reflog entries</div>
       : entries.map(entry => <button type='button' key={`${entry.selector}-${entry.hash}`}
         className='dsh-git-reflog-row' aria-pressed={pending?.selector === entry.selector}
         onClick={() => { setPending(entry); setError(null); setNotice(null) }}>
@@ -74,13 +74,13 @@ export function ReflogPanel({ path }: { path: string }) {
         <code>{entry.shortHash}</code>
         <time>{entry.date}</time>
       </button>)}
-    {pending && <section className='dsh-git-section' aria-label='确认软重置'>
-      <div className='dsh-git-section-head'>软重置确认</div>
-      <p>将当前分支软重置到 {pending.selector}（{pending.shortHash}），保留工作区和暂存区的文件内容。此操作会移动当前分支指针。</p>
+    {pending && <section className='dsh-git-section' aria-label='Confirm soft reset'>
+      <div className='dsh-git-section-head'>Confirm soft reset</div>
+      <p>Soft reset the current branch to {pending.selector}({pending.shortHash}), keeping the working tree and staged file contents. This moves the current branch pointer.</p>
       <div className='dsh-git-inline-form'>
-        <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={busy} onClick={resetToEntry}>软重置到此处</button>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={busy} onClick={() => setPending(null)}>取消</button>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={copyHash}>复制 hash</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={busy} onClick={resetToEntry}>Soft reset to here</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={busy} onClick={() => setPending(null)}>Cancel</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={copyHash}>Copy hash</button>
       </div>
     </section>}
   </div>

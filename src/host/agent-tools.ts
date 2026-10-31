@@ -2,7 +2,7 @@ import type { GitService } from './git-service.js'
 import { defineTool } from './tool-defs.js'
 import type { ToolDefinition, ToolParameter } from './tool-defs.js'
 
-const cwdDescription = '仓库所在的绝对路径（必须是 Git 工作树内的路径）'
+const cwdDescription = 'Absolute path of the repository (must be a path inside a Git working tree)'
 const toolNames = new Set([
   'git_status',
   'git_diff',
@@ -29,15 +29,15 @@ function errorText(error: unknown): string {
 }
 
 function actionSummary(action: string, value: any): string {
-  if (value?.ok) return value.output || `已完成${action}`
+  if (value?.ok) return value.output || `Completed${action}`
   const error = typeof value?.error === 'string' ? value.error : value?.error?.message
-  return `${action}失败${error ? `：${error}` : ''}`
+  return `${action}Failed${error ? `:${error}` : ''}`
 }
 
 function gitStatusTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_status',
-    description: '只读：查看 Git 工作树状态、分支与各类变更文件，不会修改仓库。',
+    description: 'Read-only: view Git working tree status, branches, and changed files of every kind, without modifying the repository.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
     },
@@ -80,8 +80,8 @@ function gitStatusTool(service: GitService): ToolDefinition {
         },
       },
       render: (_args, value) => textResult(value.clean
-        ? 'Git 工作树干净。'
-        : `Git 工作树有 ${value.files.length}${value.truncated ? ' 个以上' : ''} 个变更文件。`),
+        ? 'The Git working tree is clean.'
+        : `The Git working tree has ${value.files.length}${value.truncated ? ' or more' : ''} changed files.`),
     },
     async execute(args) {
       try {
@@ -123,15 +123,15 @@ function gitStatusTool(service: GitService): ToolDefinition {
 function gitDiffTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_diff',
-    description: '只读：查看工作区、暂存区或提交范围的代码差异，不会修改仓库。',
+    description: 'Read-only: view code diffs for the working tree, the index, or a commit range, without modifying the repository.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      base: parameter('string', '差异基准版本或分支。'),
-      target: parameter('string', '差异目标版本或分支。'),
-      mode: parameter('string', '差异模式。', false, { enum: ['worktree', 'staged', 'range', 'single'] }),
-      files: parameter('array', '仅查看这些仓库相对路径。', false, { items: { type: 'string' } }),
-      context: parameter('number', '每个差异块显示的上下文行数。'),
-      ignoreWhitespace: parameter('boolean', '是否忽略空白差异。'),
+      base: parameter('string', 'Base revision or branch for the diff.'),
+      target: parameter('string', 'Target revision or branch for the diff.'),
+      mode: parameter('string', 'Diff mode.', false, { enum: ['worktree', 'staged', 'range', 'single'] }),
+      files: parameter('array', 'Only view history for these repository-relative paths.', false, { items: { type: 'string' } }),
+      context: parameter('number', 'Number of context lines displayed for each diff hunk.'),
+      ignoreWhitespace: parameter('boolean', 'Whether to ignore whitespace differences.'),
     },
     output: {
       schema: {
@@ -162,7 +162,7 @@ function gitDiffTool(service: GitService): ToolDefinition {
           },
         },
       },
-      render: (_args, value) => textResult(`差异共 ${value.files.length} 个文件，增加 ${value.totalInsertions} 行、删除 ${value.totalDeletions} 行${value.truncated ? '（补丁已截断）' : ''}。`),
+      render: (_args, value) => textResult(`Diff: ${value.files.length} files, +${value.totalInsertions} lines, -${value.totalDeletions} lines${value.truncated ? ' (patch truncated)' : ''}.`),
     },
     async execute(args) {
       try {
@@ -203,11 +203,11 @@ function gitDiffTool(service: GitService): ToolDefinition {
 function gitLogTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_log',
-    description: '只读：查看最近提交记录或指定文件的提交历史，不会修改仓库。',
+    description: 'Read-only: view recent commits or the commit history of specific files, without modifying the repository.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      limit: parameter('number', '最多返回的提交数量，范围为 1 到 100。'),
-      file: parameter('string', '仅查看此仓库相对路径的历史。'),
+      limit: parameter('number', 'Maximum number of commits to return, from 1 to 100.'),
+      file: parameter('string', 'Only view history for this repository-relative path.'),
     },
     output: {
       schema: {
@@ -233,7 +233,7 @@ function gitLogTool(service: GitService): ToolDefinition {
           },
         },
       },
-      render: (_args, value) => textResult(`提交记录：${value.commits.length} 条${value.commits[0] ? `，最近一条为 ${value.commits[0].shortHash} ${value.commits[0].subject}` : ''}。`),
+      render: (_args, value) => textResult(`Commit log: ${value.commits.length} entries${value.commits[0] ? `, latest is ${value.commits[0].shortHash} ${value.commits[0].subject}` : ''}.`),
     },
     async execute(args) {
       try {
@@ -274,14 +274,14 @@ function actionResultSchema(extraProperties: Record<string, unknown> = {}): Reco
 function gitStageTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_stage',
-    description: '会修改仓库暂存区：暂存指定文件；未提供文件或列表为空时暂存全部改动。',
+    description: 'Modifies the repository index: stages the given files; when no files are provided or the list is empty, stages all changes.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      files: parameter('array', '要暂存的仓库相对路径；省略或空数组表示暂存全部改动。', false, { items: { type: 'string' } }),
+      files: parameter('array', 'Repository-relative paths to stage; omit them or pass an empty array to stage all changes.', false, { items: { type: 'string' } }),
     },
     output: {
       schema: actionResultSchema(),
-      render: (_args, value) => textResult(actionSummary('暂存', value)),
+      render: (_args, value) => textResult(actionSummary('Stage', value)),
     },
     async execute(args) {
       try {
@@ -299,14 +299,14 @@ function gitStageTool(service: GitService): ToolDefinition {
 function gitUnstageTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_unstage',
-    description: '会修改仓库暂存区：取消暂存指定文件；未提供文件或列表为空时取消暂存全部改动。',
+    description: 'Modifies the repository index: unstages the given files; when no files are provided or the list is empty, unstages all changes.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      files: parameter('array', '要取消暂存的仓库相对路径；省略或空数组表示取消暂存全部改动。', false, { items: { type: 'string' } }),
+      files: parameter('array', 'Repository-relative paths to unstage; omit them or pass an empty array to unstage all changes.', false, { items: { type: 'string' } }),
     },
     output: {
       schema: actionResultSchema(),
-      render: (_args, value) => textResult(actionSummary('取消暂存', value)),
+      render: (_args, value) => textResult(actionSummary('Unstage', value)),
     },
     async execute(args) {
       try {
@@ -324,12 +324,12 @@ function gitUnstageTool(service: GitService): ToolDefinition {
 function gitCommitTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_commit',
-    description: '会修改仓库历史：创建提交；amend 会改写最近一次提交，受安全限制需在人类 Git 面板中执行。',
+    description: 'Modifies repository history: creates a commit; amend rewrites the most recent commit and, due to safety restrictions, must be run in the human Git panel.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      message: parameter('string', '提交说明。'),
-      all: parameter('boolean', '是否同时暂存并提交所有已跟踪文件的改动。'),
-      amend: parameter('boolean', '是否改写最近一次提交。'),
+      message: parameter('string', 'Commit description.'),
+      all: parameter('boolean', 'Whether to stage and commit changes to all tracked files at once.'),
+      amend: parameter('boolean', 'Whether to rewrite the most recent commit.'),
     },
     output: {
       schema: actionResultSchema({
@@ -338,8 +338,8 @@ function gitCommitTool(service: GitService): ToolDefinition {
         summary: { type: 'string' },
       }),
       render: (_args, value) => textResult(value.ok
-        ? `提交成功${value.shortHash ? `：${value.shortHash}` : ''}${value.summary ? ` ${value.summary}` : ''}。`
-        : actionSummary('提交', value)),
+        ? `Commit succeeded${value.shortHash ? `: ${value.shortHash}` : ''}${value.summary ? ` ${value.summary}` : ''}.`
+        : actionSummary('Commit', value)),
     },
     async execute(args) {
       try {
@@ -377,12 +377,12 @@ function stashListSchema(): Record<string, unknown> {
 function gitStashTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_stash',
-    description: '列出储藏内容为只读；push、pop、apply 会修改工作区，drop 会删除储藏且仅可在人类 Git 面板中执行。',
+    description: 'Listing stash entries is read-only; push, pop, and apply modify the working tree, drop deletes the stash and can only be run in the human Git panel.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      action: parameter('string', '储藏操作。', true, { enum: ['list', 'push', 'pop', 'apply', 'drop'] }),
-      message: parameter('string', '创建储藏时使用的说明。'),
-      index: parameter('number', '要恢复或删除的储藏序号，默认 0。'),
+      action: parameter('string', 'Stash operations.', true, { enum: ['list', 'push', 'pop', 'apply', 'drop'] }),
+      message: parameter('string', 'Message used when creating the stash.'),
+      index: parameter('number', 'Index of the stash entry to restore or drop, defaults to 0.'),
     },
     output: {
       schema: {
@@ -392,8 +392,8 @@ function gitStashTool(service: GitService): ToolDefinition {
         ],
       },
       render: (args, value) => textResult(Array.isArray(value)
-        ? `储藏列表：${value.length} 条。`
-        : actionSummary(args.action === 'push' ? '创建储藏' : args.action === 'pop' ? '恢复并删除储藏' : args.action === 'apply' ? '应用储藏' : '删除储藏', value)),
+        ? `Stash list:${value.length} entries.`
+        : actionSummary(args.action === 'push' ? 'Create stash' : args.action === 'pop' ? 'Restore and drop stash' : args.action === 'apply' ? 'Apply stash' : 'Delete stash', value)),
     },
     async execute(args) {
       try {
@@ -403,7 +403,7 @@ function gitStashTool(service: GitService): ToolDefinition {
         if (args.action === 'pop') return await service.stashApply(args.cwd, index, { pop: true })
         if (args.action === 'apply') return await service.stashApply(args.cwd, index, { pop: false })
         if (args.action === 'drop') return await service.stashDrop(args.cwd, index)
-        return { ok: false, error: '不支持的储藏操作' }
+        return { ok: false, error: 'Unsupported stash operation' }
       } catch (error) {
         if (args.action === 'list') throw error
         return { ok: false, error: errorText(error) }
@@ -463,25 +463,25 @@ function switchResultSchema(): Record<string, unknown> {
 function gitBranchTool(service: GitService): ToolDefinition {
   return defineTool({
     name: 'git_branch',
-    description: 'list 为只读；create 和 switch 会修改仓库当前分支或创建新分支。',
+    description: 'list is read-only; create and switch modify the repository\'s current branch or create a new branch.',
     parameters: {
       cwd: parameter('string', cwdDescription, true),
-      action: parameter('string', '分支操作。', true, { enum: ['list', 'create', 'switch'] }),
-      name: parameter('string', '要创建或切换到的分支名。'),
-      base: parameter('string', '创建分支时使用的起点版本或分支。'),
+      action: parameter('string', 'Branch operations.', true, { enum: ['list', 'create', 'switch'] }),
+      name: parameter('string', 'Name of the branch to create or switch to.'),
+      base: parameter('string', 'Starting revision or branch used to create the branch.'),
     },
     output: {
       schema: { oneOf: [branchListSchema(), switchResultSchema()] },
       render: (args, value) => textResult(args.action === 'list'
-        ? `分支列表：${value.branches.length} 个，当前分支为 ${value.current || '无'}。`
-        : actionSummary(args.action === 'create' ? '创建分支' : '切换分支', value)),
+        ? `Branch list: ${value.branches.length} branches, current branch is ${value.current || 'None'}.`
+        : actionSummary(args.action === 'create' ? 'Create branch' : 'Switch branch', value)),
     },
     async execute(args) {
       try {
         if (args.action === 'list') return await service.branches(args.cwd)
         if (args.action === 'create') return await service.createBranch(args.cwd, args.name, args.base)
         if (args.action === 'switch') return await service.switchBranch(args.cwd, args.name)
-        return { ok: false, error: { code: 'invalid-action', message: '不支持的分支操作' } }
+        return { ok: false, error: { code: 'invalid-action', message: 'Unsupported branch operation' } }
       } catch (error) {
         if (args.action === 'list') throw error
         return { ok: false, error: { code: 'git-tool-error', message: errorText(error) } }
@@ -496,7 +496,7 @@ function isRecord(value: unknown): value is Record<string, any> {
 
 export function registerGitTools(ctx: any, service: GitService): () => void {
   if (typeof ctx?.tools?.register !== 'function') {
-    console.warn('dsh-plugin-git: 当前 DSH 版本不支持工具注册，已跳过 Git 工具')
+    console.warn('dsh-plugin-git: the current DSH version does not support tool registration; Git tools were skipped')
     return () => {}
   }
 
@@ -518,7 +518,7 @@ export function registerGitTools(ctx: any, service: GitService): () => void {
       const dispose = ctx.tools.register(definition)
       if (typeof dispose === 'function') disposers.push(dispose)
     } catch (error) {
-      console.warn(`dsh-plugin-git: Git 工具定义或注册失败：${errorText(error)}`)
+      console.warn(`dsh-plugin-git: failed to define or register Git tools: ${errorText(error)}`)
     }
   }
 
@@ -536,16 +536,16 @@ export function registerGitTools(ctx: any, service: GitService): () => void {
         }
         if (!toolNames.has(name as string) || !isRecord(args)) return next()
         if (name === 'git_commit' && args.amend === true) {
-          return { kind: 'deny', reason: '改写最近一次提交会重写提交历史，请改由你在 Git 面板中执行。' }
+          return { kind: 'deny', reason: 'Rewriting the most recent commit rewrites commit history; please run it yourself in the Git panel.' }
         }
         if (name === 'git_stash' && args.action === 'drop') {
-          return { kind: 'deny', reason: '删除储藏记录可能无法恢复，请改由你在 Git 面板中执行。' }
+          return { kind: 'deny', reason: 'Deleting a stash entry may be unrecoverable; please run it yourself in the Git panel.' }
         }
         return next()
       })
       if (typeof dispose === 'function') disposers.push(dispose)
     } catch (error) {
-      console.warn(`dsh-plugin-git: Git 工具审批钩子注册失败：${errorText(error)}`)
+      console.warn(`dsh-plugin-git: failed to register the Git tool approval hook: ${errorText(error)}`)
     }
   }
 
@@ -557,7 +557,7 @@ export function registerGitTools(ctx: any, service: GitService): () => void {
       try {
         dispose()
       } catch (error) {
-        console.warn(`dsh-plugin-git: Git 工具清理失败：${errorText(error)}`)
+        console.warn(`dsh-plugin-git: failed to clean up Git tools: ${errorText(error)}`)
       }
     }
   }

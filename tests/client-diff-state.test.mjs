@@ -139,7 +139,7 @@ test('comparison picker separates option copy, marks selection and disables miss
   const f = fixture()
   try {
     f.updateStatus({ upstream: undefined })
-    f.click(nodes(f.tree, node => node.props?.title === '切换对比基准')[0])
+    f.click(nodes(f.tree, node => node.props?.title === 'Switch diff base')[0])
     const options = nodes(f.tree, node => node.props?.className === 'dsh-git-compare-option')
     assert.equal(options.length, 2)
     assert.equal(options[0].props['aria-pressed'], true)
@@ -191,7 +191,7 @@ test('clean working tree omits zero line statistics and displays an intentional 
     f.requests[0].resolve({ files: [], totalInsertions: 0, totalDeletions: 0 })
     await f.settle()
     assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-stat-badge').length, 0)
-    assert.equal(nodes(f.tree, node => node.props?.children === '工作区很干净').length, 1)
+    assert.equal(nodes(f.tree, node => node.props?.children === 'Working tree is clean').length, 1)
     assert.equal(nodes(f.tree, node => node.props?.className === 'dsh-git-file-list').length, 0)
   } finally { f.dispose() }
 })
@@ -224,19 +224,19 @@ test('ChangesTab restores allow-listed state and scroll after a session slot rem
     await first.settle()
 
     first.click(nodes(first.tree, node => node.props?.title === 'src/b.ts' && String(node.props?.className || '').includes('dsh-git-file-item'))[0])
-    first.click(nodes(first.tree, node => node.props?.title === '切换对比基准')[0])
+    first.click(nodes(first.tree, node => node.props?.title === 'Switch diff base')[0])
     first.click(nodes(first.tree, node => node.props?.className === 'dsh-git-compare-option')[1])
     assert.equal(first.requests.at(-1).base, 'fork/topic')
     first.requests.at(-1).resolve(multiDiff('src/a.ts', 'src/b.ts'))
     await first.settle()
 
-    first.click(nodes(first.tree, node => String(node.props?.className || '').startsWith('dsh-git-scope-option ') && node.props.children === '未暂存')[0])
+    first.click(nodes(first.tree, node => String(node.props?.className || '').startsWith('dsh-git-scope-option ') && node.props.children === 'Unstaged')[0])
     assert.equal(first.requests.at(-1).options.mode, 'unstaged')
     first.requests.at(-1).resolve(multiDiff('src/a.ts', 'src/b.ts'))
     await first.settle()
 
     first.change(nodes(first.tree, node => node.props?.className === 'dsh-git-commit-input')[0], 'Keep this draft')
-    first.click(nodes(first.tree, node => node.props?.title === '只向 Git 请求这个文件的补丁')[0])
+    first.click(nodes(first.tree, node => node.props?.title === 'Only request the patch for this file from Git')[0])
     assert.deepEqual(first.requests.at(-1).options.files, ['src/b.ts'])
     first.requests.at(-1).resolve(diff('src/b.ts'))
     await first.settle()
@@ -255,12 +255,12 @@ test('ChangesTab restores allow-listed state and scroll after a session slot rem
     assert.equal(second.result.view, null, 'the diff payload itself is fetched again, not restored from cache')
     assert.equal(second.result.error, null, 'transient errors are not carried across an unmount')
 
-    second.click(nodes(second.tree, node => node.props?.title === '切换对比基准')[0])
+    second.click(nodes(second.tree, node => node.props?.title === 'Switch diff base')[0])
     assert.equal(nodes(second.tree, node => node.props?.className === 'dsh-git-compare-option')[1].props['aria-pressed'], true)
 
     second.requests[0].resolve(diff('src/b.ts'))
     await second.settle()
-    assert.equal(nodes(second.tree, node => String(node.props?.className || '').includes('dsh-git-scope-option-active'))[0].props.children, '未暂存')
+    assert.equal(nodes(second.tree, node => String(node.props?.className || '').includes('dsh-git-scope-option-active'))[0].props.children, 'Unstaged')
     assert.equal(nodes(second.tree, node => node.props?.className === 'dsh-git-commit-input')[0].props.value, 'Keep this draft')
     assert.equal(nodes(second.tree, node => node.props?.className === 'dsh-git-dirty-warning').length, 1, 'focused-file mode is restored')
     assert.equal(nodes(second.tree, node => node.props?.['aria-pressed'] === true && String(node.props?.className || '').includes('dsh-git-file-item'))[0].props.title, 'src/b.ts')
@@ -290,11 +290,11 @@ test('the open file offers an external editor picker wired to that file', async 
     assert.equal(nodes(header[0], node => node.props?.className === 'dsh-git-diff-path').length, 1)
     assert.equal(nodes(header[0], node => node.type?.name === 'OpenInEditorMenu').length, 1)
     // The picker performs the request; the panel only renders what it reports back.
-    picker[0].props.onNotice({ ok: true, text: '已用 Zed 打开：src/a.ts' })
+    picker[0].props.onNotice({ ok: true, text: 'Took Zed open:src/a.ts' })
     await f.settle()
     const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-editor-notice')
     assert.equal(notice.length, 1)
-    assert.match(notice[0].props.children, /已用 Zed 打开/)
+    assert.match(notice[0].props.children, /Took Zed open/)
   } finally { f.dispose() }
 })
 
@@ -304,11 +304,11 @@ test('a refused open surfaces the host reason and never claims success', async (
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
     nodes(f.tree, node => node.type?.name === 'OpenInEditorMenu')[0]
-      .props.onNotice({ ok: false, text: '文件已不存在，可能已被删除或重命名' })
+      .props.onNotice({ ok: false, text: 'The file no longer exists; it may have been deleted or renamed' })
     await f.settle()
     const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-error')
     assert.equal(notice.length, 1)
-    assert.equal(notice[0].props.children, '文件已不存在，可能已被删除或重命名')
+    assert.equal(notice[0].props.children, 'The file no longer exists; it may have been deleted or renamed')
   } finally { f.dispose() }
 })
 
@@ -317,7 +317,7 @@ test('file history takes over the change body instead of being appended under th
   try {
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
-    const menu = nodes(f.tree, node => node.props?.title === '查看这个文件的历史与逐行责任')
+    const menu = nodes(f.tree, node => node.props?.title === "View this file's history and line-by-line blame")
     assert.equal(menu.length, 1)
     f.click(menu[0])
     await f.settle()
@@ -348,13 +348,13 @@ test('a rejected side-conversation draft is reported instead of left as pending'
   try {
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
-    f.deliverPrompt = async () => { throw new Error('侧边对话尚未就绪') }
-    const button = nodes(f.tree, node => node.props?.title === '打开侧边对话，填入解释当前文件改动的提示词（不自动发送）')[0]
+    f.deliverPrompt = async () => { throw new Error('The Git side chat is not ready yet; enable the sidebar plugin and refresh the page') }
+    const button = nodes(f.tree, node => node.props?.title === "Open the side chat and fill in the prompt explaining the current file's changes (does not send automatically)")[0]
     await button.props.onClick()
     await f.settle()
     const notice = nodes(f.tree, node => node.props?.className === 'dsh-git-changes-notice dsh-git-error')
     assert.equal(notice.length, 1)
-    assert.equal(notice[0].props.children, '侧边对话尚未就绪')
+    assert.equal(notice[0].props.children, 'The Git side chat is not ready yet; enable the sidebar plugin and refresh the page')
   } finally { f.dispose() }
 })
 
@@ -412,7 +412,7 @@ test('ChangesTab masks previous cwd before effects and surfaces only current err
     f.compare('branch-upstream')
     f.updateStatus({ upstream: undefined })
     assert.equal(f.requests.at(-1).signal.aborted, true)
-    assert.match(f.result.error, /未配置上游/)
+    assert.match(f.result.error, /The current branch has no upstream configured/)
   } finally { f.dispose() }
 })
 
@@ -421,7 +421,7 @@ test('ChangesTab does not carry a focused file filter into another repository', 
   try {
     f.requests[0].resolve(diff('src/a.ts'))
     await f.settle()
-    f.click(nodes(f.tree, node => node.props?.title === '只向 Git 请求这个文件的补丁')[0])
+    f.click(nodes(f.tree, node => node.props?.title === 'Only request the patch for this file from Git')[0])
     assert.deepEqual(f.requests.at(-1).options.files, ['src/a.ts'])
 
     f.switchCwd('/b')
@@ -448,8 +448,8 @@ test('ChangesTab ignores conflict contents from an older file request', async ()
     ] })
     await f.settle()
 
-    f.click(nodes(f.tree, node => node.props?.title === '查看冲突内容')[0])
-    f.click(nodes(f.tree, node => node.props?.title === '查看冲突内容')[1])
+    f.click(nodes(f.tree, node => node.props?.title === 'View conflict')[0])
+    f.click(nodes(f.tree, node => node.props?.title === 'View conflict')[1])
     assert.equal(f.conflictRequests.length, 2)
     f.conflictRequests[1].resolve(conflicts)
     await f.settle()

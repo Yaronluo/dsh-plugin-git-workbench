@@ -8,7 +8,7 @@ export const GIT_SESSION_BRIDGE_SLOT = 'dsh-plugin-git.session-navigation'
  */
 export function conversationViewStore(slots: any): any {
   const entry = slots.entries('conversation.session.header').find((item: any) => item.store)
-  if (!entry?.store) throw new Error('当前宿主未提供会话标签状态，无法挂载 Git 工作台')
+  if (!entry?.store) throw new Error('The current host does not provide session tab state, cannot mount the Git workbench')
   return entry.store
 }
 
@@ -16,7 +16,7 @@ export function installGitConversationView(scope: any, components: { Page: any; 
   const slots = scope.slots
   const disposers: Array<() => void> = []
   const failures = new Map<string, string>()
-  const publishErrors = () => noteGitViewError([...failures.values()].join('；'))
+  const publishErrors = () => noteGitViewError([...failures.values()].join(';'))
   const guarded = (key: string, register: () => (() => void)) => {
     try {
       const dispose = register()
@@ -26,7 +26,7 @@ export function installGitConversationView(scope: any, components: { Page: any; 
     } catch (error) {
       failures.set(key, error instanceof Error ? error.message : String(error))
       publishErrors()
-      console.error('[dsh-plugin-git] Git 工作台挂载失败：', error)
+      console.error('[dsh-plugin-git] failed to mount the Git workbench: ', error)
       return () => { failures.delete(key); publishErrors() }
     }
   }

@@ -69,10 +69,10 @@ test('the sync buttons keep the sync result out of their own row', () => {
 
   assert.match(markup, /role="dialog"/)
   assert.match(markup, /dsh-git-popover-actions/)
-  assert.match(markup, /title="获取远程更新"/)
-  assert.match(markup, /title="拉取远程更新"/)
-  assert.match(markup, /title="推送本地提交"/)
-  assert.match(markup, /管理工作树/)
+  assert.match(markup, /title="Fetch remote updates"/)
+  assert.match(markup, /title="Pull remote updates"/)
+  assert.match(markup, /title="Push local commits"/)
+  assert.match(markup, /Manage worktrees…/)
 })
 
 test('the popover markup and sheet keep the two layout fixes', async () => {

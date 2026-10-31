@@ -81,7 +81,7 @@ export function createGitRunner(): GitRunner {
           resolve({
             stdout: Buffer.concat(outChunks).toString('utf-8'),
             stderr: timedOut
-              ? `${Buffer.concat(errChunks).toString('utf-8')}\n操作超时，已中止（可能是远程不可达或需要凭据）`.trim()
+              ? `${Buffer.concat(errChunks).toString('utf-8')}\nThe operation timed out and was aborted (the remote may be unreachable or credentials may be required)`.trim()
               : Buffer.concat(errChunks).toString('utf-8'),
             // A signal-terminated child is never a successful Git command.
             exitCode: code ?? -1,

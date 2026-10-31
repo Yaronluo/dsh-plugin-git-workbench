@@ -131,7 +131,7 @@ test('registers each Git tool once, disposes registrations, and executes core wo
   const denied = await preExecute({ name: 'git_commit', arguments: { amend: true } }, next)
   assert.deepEqual(denied, {
     kind: 'deny',
-    reason: '改写最近一次提交会重写提交历史，请改由你在 Git 面板中执行。',
+    reason: 'Rewriting the most recent commit rewrites commit history; please run it yourself in the Git panel.',
   })
   assert.deepEqual(await preExecute({ name: 'git_commit', arguments: { amend: false } }, next), { kind: 'allow' })
   assert.deepEqual(await preExecute({ name: 'some_other_tool', arguments: {} }, next), { kind: 'allow' })

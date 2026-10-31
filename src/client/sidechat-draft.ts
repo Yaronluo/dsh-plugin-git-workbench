@@ -26,9 +26,9 @@ export function pasteSidechatDraft(root: HTMLElement, draft: SidechatDraft, sign
       signal.removeEventListener('abort', abort)
       error ? reject(error) : resolve()
     }
-    const abort = () => finish(new Error('侧边对话已关闭或切换'))
+    const abort = () => finish(new Error('The side chat was closed or switched'))
     const observer = new view.MutationObserver(() => insert())
-    const timer = setTimeout(() => finish(new Error('侧边对话输入框尚未就绪，请检查侧边对话后重试')), timeoutMs)
+    const timer = setTimeout(() => finish(new Error('The side chat input box is not ready yet; check the side chat and retry')), timeoutMs)
     const insert = () => {
       if (done || signal.aborted) return
       const input = root.querySelector('textarea')
@@ -36,13 +36,13 @@ export function pasteSidechatDraft(root: HTMLElement, draft: SidechatDraft, sign
       const previous = draft.inserted
       const replay = previous?.element === input
       if (replay && !input.value.startsWith(previous.value)) {
-        finish(new Error('先前填入的提示词已被编辑或未被接受，请检查侧边对话；未重复追加'))
+        finish(new Error('The previously filled prompt was edited or not accepted; check the side chat; nothing was appended again'))
         return
       }
       const value = replay ? input.value : (input.value ? `${input.value}\n\n${text}` : text)
       if (!replay) {
         const setter = Object.getOwnPropertyDescriptor(view.HTMLTextAreaElement.prototype, 'value')?.set
-        if (!setter) { finish(new Error('当前侧边对话不支持自动填入提示词')); return }
+        if (!setter) { finish(new Error('The current side chat does not support filling in prompts automatically')); return }
         draft.inserted = { element: input, value }
         setter.call(input, value)
         input.dispatchEvent(new view.Event('input', { bubbles: true }))
@@ -50,7 +50,7 @@ export function pasteSidechatDraft(root: HTMLElement, draft: SidechatDraft, sign
       observer.disconnect()
       frame = view.requestAnimationFrame(() => {
         if (signal.aborted || done) return
-        if (!input.value.startsWith(value)) { finish(new Error('侧边对话未接受提示词或草稿已被编辑，请检查输入框')); return }
+        if (!input.value.startsWith(value)) { finish(new Error('The side chat did not accept the prompt or the draft was edited; check the input box')); return }
         input.focus()
         input.setSelectionRange(input.value.length, input.value.length)
         finish()

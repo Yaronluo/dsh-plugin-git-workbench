@@ -152,10 +152,10 @@ test('detail chunk failures remain retryable and the graph tabs can return to th
     assert.equal(detailRegion.props.commitRef, 'aaa')
     assert.equal(detailRegion.props.loadError, 'detail chunk unavailable')
     assert.equal(typeof detailRegion.props.onRetry, 'function')
-    assert.deepEqual(nodes(f.tree, node => node.props?.role === 'tab').map(node => node.props.children), ['提交', '引用日志'])
+    assert.deepEqual(nodes(f.tree, node => node.props?.role === 'tab').map(node => node.props.children), ['Commit', 'Reflog'])
 
     // The failed detail region remains retryable while the graph's normal tab navigation stays mounted.
-    const commitsTab = nodes(f.tree, node => node.props?.role === 'tab' && node.props.children === '提交')[0]
+    const commitsTab = nodes(f.tree, node => node.props?.role === 'tab' && node.props.children === 'Commit')[0]
     commitsTab.props.onClick()
     await f.settle()
     assert.equal(nodes(f.tree, node => node.type === SelectedCommitDetails).length, 0)

@@ -3,30 +3,30 @@ export async function openNewConversationDraft(scope: any, cwd: string, text: st
   const sessions = scope.sessions
   const navigation = scope.uiWorkspace
   const conversation = scope.get?.('conversation')
-  if (!cwd) throw new Error('缺少项目目录，无法创建 Git 对话')
+  if (!cwd) throw new Error('Missing project directory; cannot create the Git chat')
   if (typeof sessions?.create !== 'function' || typeof sessions?.using !== 'function'
     || typeof navigation?.openSession !== 'function' || typeof conversation?.input?.for !== 'function') {
-    throw new Error('当前宿主不支持新建对话并填入草稿，请刷新页面或升级宿主后重试')
+    throw new Error('The current host does not support creating a new chat and filling in a draft; refresh the page or upgrade the host and try again')
   }
   // Do not reuse connectWorkspace's blank session: it may contain the reader's draft.
   const sessionId = await sessions.create({ cwd })
-  if (typeof sessionId !== 'string' || !sessionId) throw new Error('创建新对话失败：未返回会话标识')
+  if (typeof sessionId !== 'string' || !sessionId) throw new Error('Failed to create a new chat: no session identifier was returned')
   try {
     await sessions.using(sessionId, { source: 'plugin' }, async (reference: any) => {
       const context = reference.binding?.ctx ?? sessions.scope?.(sessionId)
-      if (!context) throw new Error('新对话尚未就绪，无法填入提示词')
+      if (!context) throw new Error('The new chat is not ready yet; cannot fill in the prompt')
       const input = conversation.input.for(context)
-      if (typeof input?.setDraft !== 'function' || typeof input?.state?.getSnapshot !== 'function') throw new Error('新对话未提供草稿接口')
+      if (typeof input?.setDraft !== 'function' || typeof input?.state?.getSnapshot !== 'function') throw new Error('The new chat did not provide a draft interface')
       const draft = input.state.getSnapshot().draft || ''
       const next = draft ? `${draft}\n\n${text}` : text
       input.setDraft(next)
-      if (input.state.getSnapshot().draft !== next) throw new Error('新对话未接受提示词草稿')
+      if (input.state.getSnapshot().draft !== next) throw new Error('The new chat did not accept the prompt draft')
       // openSession retains mainView synchronously before the temporary plugin
       // reference is released, preserving the input shell and its unsent draft.
       await navigation.openSession(sessionId)
     })
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    throw new Error(`新对话 ${sessionId} 已创建，但填入草稿或打开失败：${reason}。请在会话列表中打开它，避免重复新建。`)
+    throw new Error(`New conversation ${sessionId} was created, but filling in the draft or opening it failed: ${reason}. Open it in the session list to avoid creating it again.`)
   }
 }

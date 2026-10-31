@@ -100,7 +100,7 @@ export function parseForEachRefBranches(stdout: string, head: string): BranchIte
       const behind = track?.match(/behind (\d+)/)
       item.ahead = ahead ? Number(ahead[1]) : 0
       item.behind = behind ? Number(behind[1]) : 0
-      if (track?.includes('gone')) item.upstream = `${upstream} (已删除)`
+      if (track?.includes('gone')) item.upstream = `${upstream} (deleted)`
     }
     items.push(item)
   }

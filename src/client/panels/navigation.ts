@@ -11,8 +11,8 @@ export const GIT_PANEL_VIEWS = ['changes', 'history', 'stashes', 'create-branch'
 export type GitPanelView = (typeof GIT_PANEL_VIEWS)[number]
 
 export const GIT_PANEL_TITLES: Record<GitPanelView, string> = {
-  changes: '变更', history: '提交记录', stashes: '储藏', 'create-branch': '创建分支',
-  'create-worktree': '创建工作树', worktrees: '工作树',
+  changes: 'Changes', history: 'Commit history', stashes: 'Stashes', 'create-branch': 'Create branch',
+  'create-worktree': 'Create worktree', worktrees: 'Worktree',
 }
 
 export function isGitPanelView(value: unknown): value is GitPanelView {
@@ -98,12 +98,12 @@ export function openGitSessionView(sessionId: string, cwd: string, timeoutMs = 5
     const check = () => {
       const navigator = navigators.get(sessionId)
       if (!navigator) return
-      if (!samePath(navigator.cwd, cwd)) { finish(new Error('会话的仓库目录已改变，请重新打开 Git 工作台')); return }
+      if (!samePath(navigator.cwd, cwd)) { finish(new Error('The session\'s repository directory has changed; reopen the Git workbench')); return }
       try { navigator.select(GIT_CONVERSATION_VIEW); finish() }
       catch (error) { finish(error instanceof Error ? error : new Error(String(error))) }
     }
     navigationListeners.add(check)
-    timer = setTimeout(() => finish(new Error(gitViewError() || 'Git 会话标签尚未就绪，请重新打开会话后重试')), timeoutMs)
+    timer = setTimeout(() => finish(new Error(gitViewError() || 'The Git session tab is not ready yet, reopen the session and retry')), timeoutMs)
     check()
   })
 }

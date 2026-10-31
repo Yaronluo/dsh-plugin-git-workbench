@@ -41,10 +41,10 @@ export interface IndexSummary {
 const ORDER: SectionKey[] = ['conflict', 'staged', 'unstaged', 'untracked']
 
 const LABELS: Record<SectionKey, string> = {
-  conflict: '冲突',
-  staged: '已暂存',
-  unstaged: '未暂存',
-  untracked: '未跟踪',
+  conflict: 'Conflict',
+  staged: 'Staged',
+  unstaged: 'Unstaged',
+  untracked: 'Untracked',
 }
 
 /** `A`/`D`/`R`/`M`/`U` badge text for a row, matching Git's own single-letter vocabulary. */
@@ -83,7 +83,7 @@ export function sectionLabel(key: SectionKey): string {
 export function buildSections(
   files: readonly DiffFile[],
   entries?: readonly ChangeEntry[],
-  fallbackLabel = '变更文件',
+  fallbackLabel = 'Changed files',
 ): ChangeSection[] {
   const byPath = new Map<string, DiffFile>()
   for (const file of files) if (!byPath.has(file.path)) byPath.set(file.path, file)
@@ -192,9 +192,9 @@ export function indexSummary(entries?: readonly ChangeEntry[]): IndexSummary {
 
 /** First problem that should stop a commit, or `null` when the form is submittable. */
 export function commitProblem(message: string, summary: IndexSummary): string | null {
-  if (summary.conflicts > 0) return '还有未解决的冲突，先解决冲突再提交。'
-  if (summary.staged === 0) return '暂存区是空的，先暂存要提交的文件。'
-  if (!message.trim()) return '请填写提交信息。'
+  if (summary.conflicts > 0) return 'There are unresolved conflicts, resolve them before committing.'
+  if (summary.staged === 0) return 'The index is empty; stage the files you want to commit first.'
+  if (!message.trim()) return 'Please fill in the commit message.'
   return null
 }
 
@@ -203,7 +203,7 @@ export function formatStats(insertions: number, deletions: number, binary = 0): 
   const parts: string[] = []
   if (insertions) parts.push(`+${insertions}`)
   if (deletions) parts.push(`−${deletions}`)
-  if (binary) parts.push(`${binary} 个二进制文件`)
+  if (binary) parts.push(`${binary} binary files`)
   return parts.join(' · ')
 }
 

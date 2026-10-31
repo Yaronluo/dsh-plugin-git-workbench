@@ -229,7 +229,7 @@ test('switching tabs leaves the drilled-in commit behind', async () => {
   await f.click(rowButtons(f.tree)[0])
   assert.equal(detailViews(f.tree).length, 1)
 
-  await f.click(tabButton(f.tree, '责任'))
+  await f.click(tabButton(f.tree, 'Blame'))
   assert.deepEqual(detailViews(f.tree), [])
   assert.deepEqual(f.calls.blame, [['D:/repo', 'src/a.ts']])
 })

@@ -52,11 +52,11 @@ export function installGitSidechat(sidebar: any, onReady?: (open: BridgeRecord['
     installing = true
     try {
       unregister = sidebar.registerTab({
-        id: GIT_SIDECHAT_TYPE, title: () => 'Git 侧边对话', description: () => 'Git 提示词草稿，不自动发送',
+        id: GIT_SIDECHAT_TYPE, title: () => 'Git side chat', description: () => 'Git prompt draft, not sent automatically',
         icon: original.icon, hidden: true, single: true,
         component: DraftedSidechat,
         onClose: (tab: any, scope: any) => {
-          failSession(scope.sessionId, '侧边对话已关闭，提示词未发送')
+          failSession(scope.sessionId, 'The side chat was closed; the prompt was not sent')
           original.onClose?.(tab, scope)
         },
       })
@@ -66,11 +66,11 @@ export function installGitSidechat(sidebar: any, onReady?: (open: BridgeRecord['
   sync()
   const record: BridgeRecord = {
     open(sessionId, cwd, text) {
-      if (!unregister || !sidebar.getTab?.(GIT_SIDECHAT_TYPE)) return Promise.reject(new Error('侧边对话组件尚未就绪'))
-      if (sidebar.isTabEnabled?.('sidechat') === false || sidebar.isTabEnabled?.(GIT_SIDECHAT_TYPE) === false) return Promise.reject(new Error('侧边对话已在设置中停用'))
+      if (!unregister || !sidebar.getTab?.(GIT_SIDECHAT_TYPE)) return Promise.reject(new Error('The side chat component is not ready yet'))
+      if (sidebar.isTabEnabled?.('sidechat') === false || sidebar.isTabEnabled?.(GIT_SIDECHAT_TYPE) === false) return Promise.reject(new Error('The side chat is disabled in settings'))
       return new Promise<void>((resolve, reject) => {
         let completed = false
-        const timer = setTimeout(() => request.finish(new Error('打开侧边对话或填入提示词超时，请检查侧边对话后重试')), 15000)
+        const timer = setTimeout(() => request.finish(new Error('Timed out opening the side chat or filling in the prompt; check the side chat and retry')), 15000)
         const request: DraftRequest = {
           id: globalThis.crypto?.randomUUID?.() ?? `git-draft-${Date.now()}-${++requestSequence}`, text, sessionId,
           finish(error) {
@@ -93,7 +93,7 @@ export function installGitSidechat(sidebar: any, onReady?: (open: BridgeRecord['
         try {
           // Raw prompts stay in memory, never tab.meta/localStorage. A deterministic
           // tab per parent reuses its draft; opening it cannot submit or interrupt a turn.
-          sidebar.openTab({ type: GIT_SIDECHAT_TYPE, id: GIT_SIDECHAT_TYPE, title: 'Git 侧边对话',
+          sidebar.openTab({ type: GIT_SIDECHAT_TYPE, id: GIT_SIDECHAT_TYPE, title: 'Git side chat',
             meta: { autoCreate: true }, target: 'right', reveal: true }, { sessionId, cwd })
           emit()
         } catch (error) { request.finish(error instanceof Error ? error : new Error(String(error))) }
@@ -107,7 +107,7 @@ export function installGitSidechat(sidebar: any, onReady?: (open: BridgeRecord['
     disposed = true
     unsubscribe()
     if (bridges.get(sidebar) === record) bridges.delete(sidebar)
-    for (const sessionId of [...queues.keys()]) failSession(sessionId, 'Git 侧边对话接入已卸载')
+    for (const sessionId of [...queues.keys()]) failSession(sessionId, 'The Git side chat integration was unmounted')
     unregister?.()
     listeners.clear()
   }
@@ -115,7 +115,7 @@ export function installGitSidechat(sidebar: any, onReady?: (open: BridgeRecord['
 
 export function createGitSidechatOpener(scope: any, resolveOpen?: () => BridgeRecord['open'] | undefined) {
   const openDestination = async (sessionId: string | undefined, cwd: string, text: string): Promise<'sidechat' | 'conversation'> => {
-    if (!sessionId || !cwd) throw new Error('请先为当前会话选择项目目录')
+    if (!sessionId || !cwd) throw new Error('Please select a project directory for the current session first')
     const sidebar = scope.get?.('betterSidebar')
     // Cordis may return a different traceable service proxy in the parent and
     // injected child; production uses a closure, not cross-context object identity.

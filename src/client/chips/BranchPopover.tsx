@@ -19,7 +19,7 @@ export interface BranchPopoverProps {
 
 type SyncAction = 'fetch' | 'pull' | 'push'
 
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : '远程同步失败'
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : 'Remote sync failed'
 
 export function BranchPopover({
   view,
@@ -67,7 +67,7 @@ export function BranchPopover({
       await onSwitch(branchName)
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : typeof err === 'string' ? err : '切换分支失败')
+      setError(err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to switch branch')
     } finally {
       setSwitching(null)
     }
@@ -85,11 +85,11 @@ export function BranchPopover({
           ? await gitApi.pull(path, { mode: 'ff-only' })
           : await gitApi.push(path, { setUpstream: true })
       if (!result.ok) {
-        setError(result.error || '远程同步失败')
+        setError(result.error || 'Remote sync failed')
         return
       }
-      const success = action === 'fetch' ? '已获取远程更新' : action === 'pull' ? '已拉取' : '已推送'
-      setNotice(result.output ? `${success}：${result.output}` : success)
+      const success = action === 'fetch' ? 'Fetched remote updates' : action === 'pull' ? 'Pulled' : 'Pushed'
+      setNotice(result.output ? `${success}:${result.output}` : success)
       if (action === 'pull' || action === 'push') onReloadStatus?.()
     } catch (syncError) {
       setError(errorMessage(syncError))
@@ -101,14 +101,14 @@ export function BranchPopover({
   return (
     <>
       <div className='dsh-git-popover-backdrop' onClick={() => { if (!switching && !syncing) onClose() }} />
-      <div className='dsh-git-popover' role='dialog' aria-label='Git 分支' aria-busy={!!switching || !!syncing} onKeyDown={event => {
+      <div className='dsh-git-popover' role='dialog' aria-label='Git branches' aria-busy={!!switching || !!syncing} onKeyDown={event => {
         if (event.key === 'Escape') { event.stopPropagation(); if (!switching && !syncing) onClose() }
       }} onClick={event => event.stopPropagation()}>
         <div className='dsh-git-search-box'>
           <IconSearch size={14} />
           <input
             className='dsh-git-search-input'
-            placeholder='搜索分支'
+            placeholder='Search branches'
             value={query}
             onChange={event => setQuery(event.target.value)}
             autoFocus
@@ -116,22 +116,22 @@ export function BranchPopover({
         </div>
 
         {(diverged || stashCount > 0) && <div className='dsh-git-diverged'>
-          {ahead > 0 && <span className='dsh-git-ahead' title={`领先上游 ${ahead} 个提交`}><IconArrowUp size={12} />领先 {ahead} 个提交</span>}
-          {behind > 0 && <span className='dsh-git-behind' title={`落后上游 ${behind} 个提交`}><IconArrowDown size={12} />落后 {behind} 个提交</span>}
-          {stashCount > 0 && <span className='dsh-git-badge'>储藏 {stashCount}</span>}
+          {ahead > 0 && <span className='dsh-git-ahead' title={` ahead of upstream ${ahead} commits`}><IconArrowUp size={12} />Ahead {ahead} commits</span>}
+          {behind > 0 && <span className='dsh-git-behind' title={` behind upstream ${behind} commits`}><IconArrowDown size={12} />Behind {behind} commits</span>}
+          {stashCount > 0 && <span className='dsh-git-badge'>Stashes {stashCount}</span>}
         </div>}
 
-        {view.dirtyFiles > 0 && <div className='dsh-git-dirty-warning'>未提交的更改: {view.dirtyFiles} 个文件</div>}
+        {view.dirtyFiles > 0 && <div className='dsh-git-dirty-warning'>Uncommitted changes: {view.dirtyFiles} files</div>}
 
         {error && <div role='alert' className='dsh-git-error dsh-git-popover-error'>
           {error}
-          {credentialHint && <div className='dsh-git-muted'>需要凭据或网络不可达时，请在终端里手动执行一次</div>}
+          {credentialHint && <div className='dsh-git-muted'>If credentials are required or the network is unreachable, run it once manually in a terminal</div>}
         </div>}
 
         <div className='dsh-git-branch-list'>
           {filtered.length === 0 ? (
             <div style={{ padding: '16px 12px', textAlign: 'center', color: 'var(--dsw-alias-label-secondary)', fontSize: 13 }}>
-              未匹配到分支
+              No matching branch
             </div>
           ) : (
             filtered.map(branch => {
@@ -150,7 +150,7 @@ export function BranchPopover({
                     <span title={branch.name}>{branch.name}</span>
                   </div>
                   {isCurrent && <IconCheck size={14} />}
-                  {isSwitching && <span style={{ fontSize: 11, color: 'var(--dsw-alias-label-secondary)' }}>切换中...</span>}
+                  {isSwitching && <span style={{ fontSize: 11, color: 'var(--dsw-alias-label-secondary)' }}>Switching...</span>}
                 </button>
               )
             })
@@ -163,33 +163,33 @@ export function BranchPopover({
         {notice && <div className='dsh-git-popover-notice' role='status'>{notice}</div>}
 
         <div className='dsh-git-popover-actions'>
-          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='获取远程更新' disabled={!!syncing || !!switching} aria-busy={syncing === 'fetch'} onClick={() => void handleSync('fetch')}>
-            <IconCloudRefresh size={15} />{syncing === 'fetch' ? '获取中…' : '获取'}
+          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='Fetch remote updates' disabled={!!syncing || !!switching} aria-busy={syncing === 'fetch'} onClick={() => void handleSync('fetch')}>
+            <IconCloudRefresh size={15} />{syncing === 'fetch' ? 'Fetching…' : 'Fetch'}
           </button>
-          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='拉取远程更新' disabled={!!syncing || !!switching} aria-busy={syncing === 'pull'} onClick={() => void handleSync('pull')}>
-            <IconPull size={15} />{syncing === 'pull' ? '拉取中…' : '拉取'}
+          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='Pull remote updates' disabled={!!syncing || !!switching} aria-busy={syncing === 'pull'} onClick={() => void handleSync('pull')}>
+            <IconPull size={15} />{syncing === 'pull' ? 'Pulling…' : 'Pull'}
           </button>
-          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='推送本地提交' disabled={!!syncing || !!switching} aria-busy={syncing === 'push'} onClick={() => void handleSync('push')}>
-            <IconPush size={15} />{syncing === 'push' ? '推送中…' : '推送'}
+          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' title='Push local commits' disabled={!!syncing || !!switching} aria-busy={syncing === 'push'} onClick={() => void handleSync('push')}>
+            <IconPush size={15} />{syncing === 'push' ? 'Pushing…' : 'Push'}
           </button>
         </div>
 
         <div className='dsh-git-footer'>
           <button type='button' className='dsh-git-footer-btn' disabled={!!switching || !!syncing} onClick={onCreateBranch}>
             <IconBranchPlus size={17} />
-            <span>创建并检出新分支…</span>
+            <span>Create and check out new branch…</span>
           </button>
           <button type='button' className='dsh-git-footer-btn' disabled={!!switching || !!syncing} onClick={onOpenGraph}>
             <IconHistory size={17} />
-            <span>提交记录</span>
+            <span>Commit history</span>
           </button>
           <button type='button' className='dsh-git-footer-btn' disabled={!!switching || !!syncing} onClick={onCreateWorktree}>
             <IconFolderTree size={17} />
-            <span>创建并打开工作树…</span>
+            <span>Create and open worktree…</span>
           </button>
           <button type='button' className='dsh-git-footer-btn' disabled={!!switching || !!syncing} onClick={onManageWorktrees}>
             <IconFolderTree size={17} />
-            <span>管理工作树…</span>
+            <span>Manage worktrees…</span>
           </button>
         </div>
       </div>

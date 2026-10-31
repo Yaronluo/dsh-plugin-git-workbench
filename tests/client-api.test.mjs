@@ -85,5 +85,5 @@ test('opening a Worktree really adopts its path and opens the returned workspace
   })
   await open('D:/worktree')
   assert.deepEqual(calls, [['create', { path: 'D:/worktree' }], ['open', 'worktree-id']])
-  await assert.rejects(createWorktreeOpener({})('D:/worktree'), /无法打开/)
+  await assert.rejects(createWorktreeOpener({})('D:/worktree'), /cannot open a Worktree session/)
 })

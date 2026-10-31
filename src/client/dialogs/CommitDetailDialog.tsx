@@ -57,7 +57,7 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
 
   useEffect(() => {
     if (!selectedRef) {
-      setError('提交引用无效')
+      setError('Invalid commit reference')
       setLoading(false)
       setDetailLoadedFor(detailRequestKey)
       return
@@ -75,7 +75,7 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
       }
     }).catch(reason => {
       if (!controller.signal.aborted) {
-        setError(errorText(reason, '读取提交详情失败'))
+        setError(errorText(reason, 'Failed to read commit details'))
         setDetailLoadedFor(detailRequestKey)
       }
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -102,7 +102,7 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
       }
     }).catch(reason => {
       if (!controller.signal.aborted) {
-        setDiffError(errorText(reason, '读取文件差异失败'))
+        setDiffError(errorText(reason, 'Failed to read file diff'))
         setDiffLoadedFor(diffRequestKey)
       }
     }).finally(() => { if (!controller.signal.aborted) setDiffLoading(false) })
@@ -112,10 +112,10 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
   const copyHash = async () => {
     try {
       await navigator.clipboard.writeText(selectedRef)
-      setNotice('已复制提交 hash')
+      setNotice('Copied commit hash')
       setError(null)
     } catch (reason) {
-      setError(errorText(reason, '复制 hash 失败'))
+      setError(errorText(reason, 'Failed to copy hash'))
     }
   }
 
@@ -130,7 +130,7 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
     if (!action || actionBusy) return
     const name = actionName.trim()
     if ((action === 'tag' || action === 'branch') && !name) {
-      setError(action === 'tag' ? '请输入标签名称' : '请输入分支名称')
+      setError(action === 'tag' ? 'Please enter a tag name' : 'Please enter a branch name')
       return
     }
     setActionBusy(true)
@@ -141,61 +141,61 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
       let successNotice = ''
       if (action === 'tag') {
         result = await gitApi.tagCreate(path, name, { ref: selectedRef })
-        successNotice = `已在此提交创建标签 ${name}`
+        successNotice = `Created tag at this commit: ${name}`
       } else if (action === 'branch') {
         result = await gitApi.createBranch(path, name, selectedRef)
-        successNotice = `已从此提交创建分支 ${name}`
+        successNotice = `Created branch from this commit: ${name}`
       } else if (action === 'revert') {
         result = await gitApi.revert(path, selectedRef)
-        successNotice = '已回退此提交'
+        successNotice = 'Reverted this commit'
       } else {
         result = await gitApi.cherryPick(path, selectedRef)
-        successNotice = '已将此提交摘取到当前分支'
+        successNotice = 'Cherry-picked this commit onto the current branch'
       }
       if (!result.ok) {
-        setError(errorText(result.error, '操作失败'))
+        setError(errorText(result.error, 'Operation failed'))
         return
       }
       setNotice(successNotice)
       setAction(null)
       setActionName('')
     } catch (reason) {
-      setError(errorText(reason, '操作失败'))
+      setError(errorText(reason, 'Operation failed'))
     } finally {
       setActionBusy(false)
     }
   }
 
   const activeDiff: DiffFile | undefined = currentDiffView?.files[0]
-  const actionLabel = action === 'tag' ? '打标签' : action === 'branch' ? '在此新建分支' : action === 'revert' ? '回退此提交' : '摘取到当前分支'
+  const actionLabel = action === 'tag' ? 'Tag' : action === 'branch' ? 'Create branch here' : action === 'revert' ? 'Revert this commit' : 'Cherry-pick onto current branch'
 
   return <div className='dsh-git-section'>
     {showBackButton && <div className='dsh-git-panel-toolbar'>
-      <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={onClose}>返回</button>
-      <span className='dsh-git-muted'>提交详情</span>
+      <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={onClose}>Back</button>
+      <span className='dsh-git-muted'>Commit details</span>
     </div>}
-    {currentLoading ? <div className='dsh-git-muted'>正在读取提交详情…</div>
+    {currentLoading ? <div className='dsh-git-muted'>Reading commit details…</div>
       : currentError && !currentDetail ? <p className='dsh-git-error' role='alert'>{currentError}</p>
       : currentDetail && <>
         <pre className='dsh-git-detail-message'>{currentDetail.subject}{currentDetail.body ? `\n\n${currentDetail.body}` : ''}</pre>
         <div className='dsh-git-detail-meta'>
-          <span>提交</span><span>{currentDetail.subject}</span>
-          <span>作者</span><span>{currentDetail.author}</span>
-          <span>邮箱</span><span>{currentDetail.authorEmail}</span>
-          <span>提交者</span><span>{currentDetail.committer}</span>
-          <span>日期</span><span>{currentDetail.commitDate || currentDetail.date}</span>
+          <span>Commit</span><span>{currentDetail.subject}</span>
+          <span>Author</span><span>{currentDetail.author}</span>
+          <span>Email</span><span>{currentDetail.authorEmail}</span>
+          <span>Committer</span><span>{currentDetail.committer}</span>
+          <span>Date</span><span>{currentDetail.commitDate || currentDetail.date}</span>
           <span>hash</span><code>{currentDetail.hash}</code>
-          <span>父提交</span><span>{currentDetail.parents.join(', ') || '无'}</span>
+          <span>Parent commit</span><span>{currentDetail.parents.join(', ') || 'None'}</span>
         </div>
 
         <section className='dsh-git-section'>
           <div className='dsh-git-section-head'>
-            <span>变更文件（{currentDetail.files.length}）</span>
+            <span>Changed files ({currentDetail.files.length})</span>
             <span className='dsh-git-spacer' />
             <span><span className='dsh-git-ins'>+{currentDetail.totalInsertions}</span> <span className='dsh-git-del'>-{currentDetail.totalDeletions}</span></span>
           </div>
           <div className='dsh-git-scroll-list'>
-            {currentDetail.files.length === 0 ? <div className='dsh-git-muted'>此提交没有文件变更</div>
+            {currentDetail.files.length === 0 ? <div className='dsh-git-muted'>This commit has no file changes</div>
               : currentDetail.files.map(file => <button type='button' key={`${file.path}-${file.status}`}
                 className='dsh-git-detail-file' aria-pressed={selectedFile?.path === file.path}
                 onClick={() => setSelectedFile(file)}>
@@ -210,8 +210,8 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
         {selectedFile && <section className='dsh-git-section'>
           <div className='dsh-git-section-head'><code>{selectedFile.path}</code></div>
           {currentDiffError && <p className='dsh-git-error' role='alert'>{currentDiffError}</p>}
-          {currentDiffLoading ? <div className='dsh-git-muted'>正在读取文件差异…</div>
-            : activeDiff?.binary ? <div className='dsh-git-binary-note'>该文件是二进制内容，未展开差异</div>
+          {currentDiffLoading ? <div className='dsh-git-muted'>Reading file diff…</div>
+            : activeDiff?.binary ? <div className='dsh-git-binary-note'>The file is binary; the diff was not expanded</div>
             : activeDiff && activeDiff.hunks.length === 0 ? <pre className='dsh-git-code-box'>{activeDiff.rawPatch}</pre>
             : activeDiff && <div className='dsh-git-diff-lines'>
               {activeDiff.hunks.map((hunk, hunkIndex) => <div key={`${hunk.oldStart}-${hunk.newStart}-${hunkIndex}`}>
@@ -227,25 +227,25 @@ export function CommitDetailDialog({ path, commitRef, onClose, showBackButton = 
         </section>}
 
         <section className='dsh-git-section'>
-          <div className='dsh-git-section-head'>提交操作</div>
+          <div className='dsh-git-section-head'>Commit actions</div>
           <div className='dsh-git-inline-form'>
-            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={copyHash}>复制 hash</button>
-            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('tag')}>打标签</button>
-            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('branch')}>在此新建分支</button>
-            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('revert')}>回退此提交</button>
-            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('cherry-pick')}>摘取到当前分支</button>
+            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={copyHash}>Copy hash</button>
+            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('tag')}>Tag</button>
+            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('branch')}>Create branch here</button>
+            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('revert')}>Revert this commit</button>
+            <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={() => beginAction('cherry-pick')}>Cherry-pick onto current branch</button>
           </div>
           {notice && <p className='dsh-git-muted' role='status'>{notice}</p>}
           {currentError && currentDetail && <p className='dsh-git-error' role='alert'>{currentError}</p>}
-          {action && <div className='dsh-git-section' role='group' aria-label={`${actionLabel}确认`}>
-            <div className='dsh-git-section-head'>确认{actionLabel}</div>
-            <p>{action === 'tag' ? '将在此提交创建一个新标签。' : action === 'branch' ? '将从此提交创建并切换到一个新分支。' : action === 'revert' ? '将创建一个新提交，用于撤销此提交的更改。' : '将此提交应用到当前分支，可能产生冲突。'}</p>
+          {action && <div className='dsh-git-section' role='group' aria-label={`${actionLabel}Confirm`}>
+            <div className='dsh-git-section-head'>Confirm{actionLabel}</div>
+            <p>{action === 'tag' ? 'Creates a new tag at this commit.' : action === 'branch' ? 'Creates a new branch from this commit and switches to it.' : action === 'revert' ? 'Creates a new commit that undoes the changes of this commit.' : 'Applies this commit to the current branch; may cause conflicts.'}</p>
             {(action === 'tag' || action === 'branch') && <input className='dsh-git-input' value={actionName}
-              placeholder={action === 'tag' ? '标签名称' : '分支名称'} aria-label={action === 'tag' ? '标签名称' : '分支名称'}
+              placeholder={action === 'tag' ? 'Tag name' : 'Branch name'} aria-label={action === 'tag' ? 'Tag name' : 'Branch name'}
               onChange={event => setActionName(event.target.value)} />}
             <div className='dsh-git-inline-form'>
-              <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={actionBusy} onClick={runAction}>确认{actionLabel}</button>
-              <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={actionBusy} onClick={() => setAction(null)}>取消</button>
+              <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={actionBusy} onClick={runAction}>Confirm{actionLabel}</button>
+              <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={actionBusy} onClick={() => setAction(null)}>Cancel</button>
             </div>
           </div>}
         </section>

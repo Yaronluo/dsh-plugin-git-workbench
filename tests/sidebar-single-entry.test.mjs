@@ -64,25 +64,25 @@ test('only blank-session workbench renders a small conversation/Git tab escape p
   const blank = renderToStaticMarkup(React.createElement(GitWorkbenchPage, {
     cwd: '/repo', useSession: select => select({ blank: true }), onReturnToConversation() {},
   }))
-  assert.match(blank, /class="dsh-git-workbench" aria-label="Git 工作台"/)
+  assert.match(blank, /class="dsh-git-workbench" aria-label="Git workbench"/)
   assert.match(blank, /title="\/repo"/)
-  assert.match(blank, /role="tablist" aria-label="会话视图"/)
-  assert.match(blank, /role="tab" aria-selected="false"[^>]*>对话<\/button>/)
+  assert.match(blank, /role="tablist" aria-label="Conversation view"/)
+  assert.match(blank, /role="tab" aria-selected="false"[^>]*>Chat<\/button>/)
   assert.match(blank, /role="tab" aria-selected="true">Git<\/span>/)
-  assert.doesNotMatch(blank, /返回对话/)
+  assert.doesNotMatch(blank, /Return to chat/)
   assert.doesNotMatch(blank, /aria-modal|modal-overlay|position:fixed/)
 
   const normal = renderToStaticMarkup(React.createElement(GitWorkbenchPage, {
     cwd: '/repo', useSession: select => select({ blank: false }),
   }))
-  assert.doesNotMatch(normal, /dsh-git-blank-nav|返回对话/)
+  assert.doesNotMatch(normal, /dsh-git-blank-nav|Return to chat/)
 })
 
 test('one panel hosts the pages as tabs and the creation flows as actions', () => {
   const markup = render({ tab: { path: '/repo', meta: { gitView: 'changes' } } })
   assert.equal(markup.match(/role="tab"/g)?.length, 4)
-  for (const label of ['变更', '提交记录', '储藏', '工作树']) assert.match(markup, new RegExp(`>${label}<`))
-  for (const label of ['创建分支', '创建工作树']) assert.match(markup, new RegExp(`aria-label="${label}"`))
+  for (const label of ['Changes', 'Commit history', 'Stashes', 'Worktree']) assert.match(markup, new RegExp(`>${label}<`))
+  for (const label of ['Create branch', 'Create worktree']) assert.match(markup, new RegExp(`aria-label="${label}"`))
   assert.match(markup, /dsh-git-view-nav/)
   // Exactly one page body: the requested view, not five stacked panels.
   assert.equal(markup.match(/dsh-git-view-content/g)?.length, 1)
@@ -91,7 +91,7 @@ test('one panel hosts the pages as tabs and the creation flows as actions', () =
 
 test('an explicit page selects its tab; each repository keeps its own remembered page', () => {
   const history = render({ tab: { path: '/repo', meta: { gitView: 'history' } } })
-  assert.match(history, /role="tab" aria-selected="true"[^>]*>[\s\S]{0,400}?提交记录/)
+  assert.match(history, /role="tab" aria-selected="true"[^>]*>[\s\S]{0,400}?Commit history/)
   const branchForm = render({ tab: { path: '/repo', meta: { gitView: 'create-branch' } } })
   assert.match(branchForm, /aria-pressed="true"/)
   assert.doesNotMatch(branchForm, /aria-modal|modal-overlay/)
@@ -112,16 +112,16 @@ test('a page that owns its loading state is never wrapped in a second placeholde
   // 用户就会先看到一个加载画面、随即又被换成页面自己的加载画面。
   const history = render({ tab: { path: '/repo', meta: { gitView: 'history' } } })
   assert.equal(history.match(/dsh-git-changes-loading/g)?.length, 1)
-  assert.match(history, /正在读取提交记录/)
-  assert.doesNotMatch(history, /正在检测 Git 仓库/)
+  assert.match(history, /Reading commits/)
+  assert.doesNotMatch(history, /Detecting Git repository/)
   const worktrees = render({ tab: { path: '/repo', meta: { gitView: 'worktrees' } } })
-  assert.doesNotMatch(worktrees, /正在检测 Git 仓库/)
+  assert.doesNotMatch(worktrees, /Detecting Git repository/)
 })
 
 test('a refused conversation view registration reports its real reason', async () => {
   const open = createGitPanelOpener({})
   navigation.noteGitViewError('native conversation store missing')
-  await assert.rejects(() => open('changes', { sessionId: 'session-1', cwd: '/repo' }), /注册失败：native conversation store missing/)
+  await assert.rejects(() => open('changes', { sessionId: 'session-1', cwd: '/repo' }), /Failed to register the Git workbench: native conversation store missing/)
   navigation.noteGitViewError('')
-  await assert.rejects(() => navigation.openGitSessionView('unmounted-session', '/repo', 5), /尚未就绪/)
+  await assert.rejects(() => navigation.openGitSessionView('unmounted-session', '/repo', 5), /not ready yet/)
 })
