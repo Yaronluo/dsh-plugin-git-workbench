@@ -60,8 +60,8 @@ test('selected commit production region renders detail without a redundant retur
     onRetry() {},
   }))
 
-  assert.doesNotMatch(html, /返回提交记录|>返回<\/button>/)
-  assert.match(html, /正在读取提交详情/)
+  assert.doesNotMatch(html, /Back to commit list|>Back<\/button>/)
+  assert.match(html, /Reading commit details…/)
 })
 
 test('selected commit chunk failure keeps its alert and retry action without a back button', () => {
@@ -74,10 +74,10 @@ test('selected commit chunk failure keeps its alert and retry action without a b
     onRetry() {},
   }))
 
-  assert.doesNotMatch(html, /返回提交记录|>返回<\/button>/)
+  assert.doesNotMatch(html, /Back to commit list|>Back<\/button>/)
   assert.match(html, /role="alert"/)
   assert.match(html, /chunk unavailable/)
-  assert.match(html, /重试加载详情/)
+  assert.match(html, /Retry loading details/)
 })
 
 // The file-history dialog nests this view, so there the detail must offer a way back out.
@@ -92,6 +92,6 @@ test('a nested detail keeps a return path to the view underneath it', () => {
     onRetry() {},
   }))
 
-  assert.match(html, />返回<\/button>/)
-  assert.match(html, /提交详情/)
+  assert.match(html, />Back<\/button>/)
+  assert.match(html, /Commit details/)
 })

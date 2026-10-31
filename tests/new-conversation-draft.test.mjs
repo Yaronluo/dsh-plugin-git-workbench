@@ -18,17 +18,17 @@ test('new-conversation fallback preserves an existing draft, writes through nati
 })
 test('missing native input capability fails before creating an empty conversation',async()=>{
  const f=fixture();f.scope.get=()=>undefined
- await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/不支持/)
+ await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/does not support creating a new chat/)
  assert.deepEqual(f.calls,[])
 })
 test('a refused draft is not reported as success or opened, and the created session is identified',async()=>{
  const f=fixture();f.input.setDraft=()=>{}
- await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/new-session 已创建.*未接受提示词/)
+ await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/New conversation new-session was created.*did not accept the prompt draft/)
  assert.deepEqual(f.calls,[{cwd:'/repo'},'release'])
 })
 test('navigation failure does not retry creation or erase the prepared draft',async()=>{
  const f=fixture();f.scope.uiWorkspace.openSession=()=>{throw new Error('navigation refused')}
- await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/new-session 已创建.*navigation refused/)
+ await assert.rejects(openNewConversationDraft(f.scope,'/repo','text'),/New conversation new-session was created.*navigation refused/)
  assert.equal(f.calls.filter(call=>typeof call==='object').length,1)
  assert.equal(f.draft,'已有草稿\n\ntext')
 })

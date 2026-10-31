@@ -46,9 +46,9 @@ class CommitDetailErrorBoundary extends React.Component<{ children: React.ReactN
 
   render() {
     if (this.state.failed) return <div className='dsh-git-empty-state'>
-      <strong>无法显示提交详情</strong>
+      <strong>Cannot show commit details</strong>
       <p className='dsh-git-error' role='alert'>{this.state.message}</p>
-      <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={this.retry}>重试</button>
+      <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={this.retry}>Retry</button>
     </div>
     return this.props.children
   }
@@ -76,9 +76,9 @@ export function SelectedCommitDetails({ path, commitRef, DetailComponent, loadEr
     </CommitDetailErrorBoundary>
       : loadError ? <>
         <p className='dsh-git-error' role='alert'>{loadError}</p>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={onRetry}>重试加载详情</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={onRetry}>Retry loading details</button>
       </>
-      : <div className='dsh-git-muted'>正在加载提交详情视图…</div>}
+      : <div className='dsh-git-muted'>Loading the commit detail view…</div>}
   </div>
 }
 
@@ -222,25 +222,25 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
     })
   }
 
-  return <section className='dsh-git-history-panel' aria-label='提交记录'>
+  return <section className='dsh-git-history-panel' aria-label='Commit history'>
     <div className='dsh-git-changes-header'>
       <div className='dsh-git-repo-row'>
-        <span className='dsh-git-panel-heading'><IconHistory size={17} />提交记录</span>
+        <span className='dsh-git-panel-heading'><IconHistory size={17} />Commit history</span>
         <div className='dsh-git-head-actions'>
-          {!loading && !error && commits.length > 0 && <span className='dsh-git-file-count'>最近 {commits.length} 条</span>}
-          <button type='button' aria-label='刷新提交记录' title='刷新' className='dsh-git-refresh-btn'
+          {!loading && !error && commits.length > 0 && <span className='dsh-git-file-count'>Recent {commits.length} entries</span>}
+          <button type='button' aria-label='Refresh commit log' title='Refresh' className='dsh-git-refresh-btn'
             disabled={loading} onClick={refreshLog}>
             <IconRefresh size={15} className={loading ? 'dsh-git-spin' : ''} />
           </button>
         </div>
       </div>
-      <div className='dsh-git-tab-strip' role='tablist' aria-label='历史记录类型'>
+      <div className='dsh-git-tab-strip' role='tablist' aria-label='History type'>
         <button type='button' role='tab' aria-selected={activeTab === 'commits'}
           className={`dsh-git-tab${activeTab === 'commits' ? ' dsh-git-tab-active' : ''}`}
-          onClick={() => { setActiveTab('commits'); setSelectedCommit(null) }}>提交</button>
+          onClick={() => { setActiveTab('commits'); setSelectedCommit(null) }}>Commit</button>
         <button type='button' role='tab' aria-selected={activeTab === 'reflog'}
           className={`dsh-git-tab${activeTab === 'reflog' ? ' dsh-git-tab-active' : ''}`}
-          onClick={() => { setActiveTab('reflog'); setSelectedCommit(null) }}>引用日志</button>
+          onClick={() => { setActiveTab('reflog'); setSelectedCommit(null) }}>Reflog</button>
       </div>
     </div>
     <div className='dsh-git-history-list'
@@ -249,9 +249,9 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
         : reflogLoadError ? <>
           <p className='dsh-git-error' role='alert'>{reflogLoadError}</p>
           <button type='button' className='dsh-git-btn dsh-git-btn-secondary'
-            onClick={() => setReflogLoadAttempt(value => value + 1)}>重试加载引用日志</button>
+            onClick={() => setReflogLoadAttempt(value => value + 1)}>Retry loading the reflog</button>
         </>
-        : <div className='dsh-git-muted'>正在加载引用日志视图…</div> : <>
+        : <div className='dsh-git-muted'>Loading the reflog view…</div> : <>
       <div className='dsh-git-graph-view' ref={viewRef} hidden={selectedCommit !== null}>
         {lanes.length > 0 && <svg className='dsh-git-graph-backdrop' width={gutter} height={graphLayout.height}
           viewBox={`0 0 ${gutter} ${graphLayout.height}`} aria-hidden='true'>
@@ -260,19 +260,19 @@ export function GitGraphDialog({ path }: { path: string; onClose?: () => void })
           </g>)}
         </svg>}
         {error ? <div className='dsh-git-empty-state'>
-          <div className='dsh-git-state-icon'><IconHistory size={24} /></div><strong>无法读取提交记录</strong>
+          <div className='dsh-git-state-icon'><IconHistory size={24} /></div><strong>Cannot read commit history</strong>
           <p className='dsh-git-state-error' role='alert'>{error}</p>
-          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={refreshLog}><IconRefresh size={14} />重试</button>
+          <button type='button' className='dsh-git-btn dsh-git-btn-secondary' onClick={refreshLog}><IconRefresh size={14} />Retry</button>
         </div>
-          : loading ? <GitLoadingState title='正在读取提交记录' hint='最近的提交、作者与分支引用即将显示' rows={4} />
+          : loading ? <GitLoadingState title='Reading commits' hint='Recent commits, authors, and branch references will appear shortly' rows={4} />
           : commits.length === 0 ? <div className='dsh-git-empty-state'>
-            <div className='dsh-git-state-icon'><IconHistory size={24} /></div><strong>暂无提交记录</strong>
-            <p>这个仓库还没有提交，第一次提交后会显示在这里。</p>
+            <div className='dsh-git-state-icon'><IconHistory size={24} /></div><strong>No commits yet</strong>
+            <p>This repository has no commits yet; the first one will show here.</p>
           </div>
           : graphRows.map(row => {
             const commit = row.commit
             return <div key={commit.hash} className='dsh-git-graph-row' role='button' tabIndex={0}
-              aria-label={`查看提交 ${commit.shortHash} ${commit.subject}`}
+              aria-label={`View commit ${commit.shortHash} ${commit.subject}`}
               onClick={() => setSelectedCommit(commit.hash)}
               onKeyDown={event => {
                 if (event.key === 'Enter' || event.key === ' ') {

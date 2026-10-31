@@ -29,20 +29,20 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
         onSuccess(res.branch)
         onClose()
       } else {
-        setError(res.error?.message || '创建分支失败')
+        setError(res.error?.message || 'Failed to create branch')
       }
     } catch (err: any) {
-      setError(err?.message || '创建分支发生错误')
+      setError(err?.message || 'Error creating branch')
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <DialogShell title="创建并检出新分支" busy={submitting} onClose={onClose}>
+    <DialogShell title="Create and check out new branch" busy={submitting} onClose={onClose}>
         <div className="dsh-git-modal-header">
-          <span>创建并检出新分支</span>
-          <button type="button" aria-label="关闭" className="dsh-git-icon-btn" disabled={submitting} onClick={onClose}>
+          <span>Create and check out new branch</span>
+          <button type="button" aria-label="Close" className="dsh-git-icon-btn" disabled={submitting} onClick={onClose}>
             <IconClose size={16} />
           </button>
         </div>
@@ -50,12 +50,12 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
         <form onSubmit={handleSubmit}>
           <div className="dsh-git-modal-body">
             <div>
-              <label htmlFor="dsh-git-branch-name" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>新分支名称</label>
+              <label htmlFor="dsh-git-branch-name" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>New branch name</label>
               <input
                 className="dsh-git-input"
                 id="dsh-git-branch-name"
                 disabled={submitting}
-                placeholder="例如：feature/awesome-ui"
+                placeholder="e.g.: feature/awesome-ui"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 autoFocus
@@ -63,12 +63,12 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
             </div>
 
             <div>
-              <label htmlFor="dsh-git-branch-base" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>基于分支 / Commit (可选)</label>
+              <label htmlFor="dsh-git-branch-base" style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>From branch / commit (optional)</label>
               <input
                 className="dsh-git-input"
                 id="dsh-git-branch-base"
                 disabled={submitting}
-                placeholder="默认为当前分支 HEAD"
+                placeholder="Defaults to the current branch HEAD"
                 value={base}
                 onChange={e => setBase(e.target.value)}
               />
@@ -83,14 +83,14 @@ export function CreateBranchDialog({ path, currentBranch, onClose, onSuccess }: 
 
           <div className="dsh-git-modal-footer">
             <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={submitting} onClick={onClose}>
-              取消
+              Cancel
             </button>
             <button
               type="submit"
               className="dsh-git-btn dsh-git-btn-primary"
               disabled={submitting || !name.trim()}
             >
-              {submitting ? '创建中...' : '创建并检出'}
+              {submitting ? 'Creating...' : 'Create and checkout'}
             </button>
           </div>
         </form>

@@ -87,7 +87,7 @@ test('a path outside the repository is refused instead of opening anything', asy
   for (const file of outside) {
     const result = await f.launcher.open({ repo, file })
     assert.equal(result.ok, false, file)
-    assert.match(result.error, /仓库内/)
+    assert.match(result.error, /Only files inside the current repository/)
   }
   assert.deepEqual(f.launched, [])
 })
@@ -97,7 +97,7 @@ test('shell metacharacters in a file name are refused, not escaped', async () =>
   for (const file of ['a&b.txt', 'a"b.txt', 'a%b.txt', 'a|b.txt', 'a^b.txt']) {
     const result = await f.launcher.open({ repo, file })
     assert.equal(result.ok, false, file)
-    assert.match(result.error, /不支持/)
+    assert.match(result.error, /characters that are not supported/)
   }
   assert.deepEqual(f.launched, [])
 })
@@ -106,7 +106,7 @@ test('a file that no longer exists reports that instead of opening a stale path'
   const f = fixture({ fileExists: () => false })
   const result = await f.launcher.open({ repo, file: 'gone.ts' })
   assert.equal(result.ok, false)
-  assert.match(result.error, /已不存在/)
+  assert.match(result.error, /no longer exists/)
   assert.deepEqual(f.launched, [])
 })
 
@@ -139,7 +139,7 @@ test('unsafe characters in the repository path are refused before launching', as
   for (const file of [undefined, 'src/a.ts']) {
     const result = await f.launcher.open({ repo: resolve('repo&command'), file })
     assert.equal(result.ok, false)
-    assert.match(result.error, /不支持/)
+    assert.match(result.error, /characters that are not supported/)
   }
   assert.deepEqual(f.launched, [])
 })
@@ -239,7 +239,7 @@ test('an unknown editor name is refused instead of opening a different editor', 
   const f = fixture({ available: ['code'] })
   const result = await f.launcher.open({ repo, file: 'src/a.ts' }, 'not-an-editor')
   assert.equal(result.ok, false)
-  assert.match(result.error, /找不到编辑器：not-an-editor/)
+  assert.match(result.error, /Editor not found:not-an-editor/)
   assert.deepEqual(f.launched, [])
 })
 
@@ -247,7 +247,7 @@ test('a chosen editor that is not installed at all is reported, not silently rep
   const f = fixture({ available: [] })
   const result = await f.launcher.open({ repo, file: 'src/a.ts' }, 'code')
   assert.equal(result.ok, false)
-  assert.match(result.error, /找不到编辑器：VS Code（命令不在 PATH 中，也不在常见安装位置）/)
+  assert.match(result.error, /Editor not found:VS Code\(the command is not in PATH, nor in the usual install locations\)/)
   assert.deepEqual(f.launched, [])
 })
 
@@ -255,7 +255,7 @@ test('DSH_GIT_EDITOR refuses another editor instead of quietly ignoring the choi
   const f = fixture({ available: ['code', 'myedit'], env: { DSH_GIT_EDITOR: 'myedit' } })
   const result = await f.launcher.open({ repo, file: 'src/a.ts' }, 'code')
   assert.equal(result.ok, false)
-  assert.match(result.error, /DSH_GIT_EDITOR=myedit/)
+  assert.match(result.error, /DSH_GIT_EDITOR is configured as myedit/)
   assert.deepEqual(f.launched, [])
 })
 
@@ -272,7 +272,7 @@ test('a chosen editor is refused for a path outside the repository before launch
   const f = fixture({ available: ['code'] })
   const result = await f.launcher.open({ repo, file: resolve('D:/other/secret.txt') }, 'code')
   assert.equal(result.ok, false)
-  assert.match(result.error, /仓库内/)
+  assert.match(result.error, /Only files inside the current repository/)
   assert.deepEqual(f.launched, [])
 })
 

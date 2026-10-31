@@ -32,16 +32,16 @@ export function GitWorkbenchPage(props: any) {
     if (props.onReturnToConversation) props.onReturnToConversation()
     else props.openView?.('chat')
   }
-  return <section className="dsh-git-workbench" aria-label="Git 工作台">
+  return <section className="dsh-git-workbench" aria-label="Git workbench">
     <header className="dsh-git-workbench-header">
-      <div className="dsh-git-workbench-title"><IconBranch size={18} /><strong>Git 工作台</strong></div>
-      <span className="dsh-git-workbench-path" title={cwd}>{cwd || '尚未选择项目目录'}</span>
-      {blank && <nav className="dsh-git-blank-nav" role="tablist" aria-label="会话视图">
-        <button type="button" role="tab" aria-selected="false" onClick={back}>对话</button>
+      <div className="dsh-git-workbench-title"><IconBranch size={18} /><strong>Git workbench</strong></div>
+      <span className="dsh-git-workbench-path" title={cwd}>{cwd || 'No project directory selected'}</span>
+      {blank && <nav className="dsh-git-blank-nav" role="tablist" aria-label="Conversation view">
+        <button type="button" role="tab" aria-selected="false" onClick={back}>Chat</button>
         <span role="tab" aria-selected="true">Git</span>
       </nav>}
     </header>
     {cwd ? <GitSidebarPanel key={`${sessionId || ''}:${cwd}`} {...props} cwd={cwd} sessionId={sessionId} onClose={back} />
-      : <div className="dsh-git-empty-state"><strong>尚未选择项目目录</strong><p>请为当前会话选择工作区，再打开 Git 工作台。</p></div>}
+      : <div className="dsh-git-empty-state"><strong>No project directory selected</strong><p>Choose a workspace for this session, then open the Git workbench.</p></div>}
   </section>
 }

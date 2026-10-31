@@ -29,14 +29,14 @@ test('blank-session panel opening adopts only its explicit project before naviga
 })
 
 test('navigation waits for mount and rejects stale repository ownership', async () => {
-  await assert.rejects(openGitSessionView('missing', '/repo', 5), /尚未就绪/)
+  await assert.rejects(openGitSessionView('missing', '/repo', 5), /not ready yet/)
   const waiting = openGitSessionView('later', '/repo', 500)
   const calls = []
   const unbind = bindGitSessionNavigator('later', { cwd: '/repo', select: view => calls.push(view) })
   try {
     await waiting
     assert.deepEqual(calls, [GIT_CONVERSATION_VIEW])
-    await assert.rejects(openGitSessionView('later', '/other'), /目录已改变/)
+    await assert.rejects(openGitSessionView('later', '/other'), /repository directory has changed/)
   } finally { unbind() }
 })
 
@@ -99,11 +99,11 @@ test('UI entry uses a native whole-page Git view without modal, DOM relocation o
   const diff = await readFile(new URL('../src/client/diff/ChangesTab.tsx', import.meta.url), 'utf8')
   assert.doesNotMatch(index, /DialogShell|ChangesToggleBtn|conversation\.input\.dock/)
   assert.doesNotMatch(chip, /DialogShell|GitGraphDialog|CreateBranchDialog|WorktreeManagerDialog/)
-  assert.doesNotMatch(chip + diff, /检测\s*Git|正在检测/)
+  assert.doesNotMatch(chip + diff, /Detecting Git/)
   assert.match(index, /dsh-git-hero-controls/)
   assert.match(index, /<Original \{\.\.\.props\}/)
   assert.match(index, /onOpenGitPanel: createGitPanelOpener\(scope\)/, 'BranchChip keeps its dropdown route into the Git tab')
   assert.match(index, /<BranchChip \{\.\.\.props\} mode="header" \/>/, 'the normal session header keeps only the branch capsule')
   assert.match(index, /<BranchChip \{\.\.\.props\} \{\.\.\.sharedProps\} \/>/, 'Hero keeps the branch capsule entry point')
-  assert.doesNotMatch(index, /ChangesButton|dsh-git-selector-btn|Git 工作台/)
+  assert.doesNotMatch(index, /ChangesButton|dsh-git-selector-btn|Git workbench/)
 })

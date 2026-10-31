@@ -52,7 +52,7 @@ test('blob preview rejects a tracked path that escapes through a symlinked paren
 
   const result = await service.readBlob(root, 'nested/tracked.txt')
   assert.equal(result.ok, false)
-  assert.match(result.error, /仓库范围/)
+  assert.match(result.error, /Path is outside the repository/)
 })
 
 test('failed branch switch cannot checkout and restore same-named tracked path', async t => {

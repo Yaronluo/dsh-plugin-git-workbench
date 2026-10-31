@@ -22,7 +22,7 @@ export const SYSTEM_EDITOR = 'system'
  * application's own icon and name (the command behind it waits in the tooltip), and the
  * footer reveals the file in the OS file manager instead of opening it.
  */
-export function OpenInEditorMenu({ repo, file, line, onNotice, label = '在编辑器中打开', size = 13, disabled = false, className = '' }: {
+export function OpenInEditorMenu({ repo, file, line, onNotice, label = 'Open in editor', size = 13, disabled = false, className = '' }: {
   repo: string
   file: string
   line?: number
@@ -58,8 +58,8 @@ export function OpenInEditorMenu({ repo, file, line, onNotice, label = '在编�
     try {
       const outcome = await gitApi.openInEditor(repo, file, line, editor)
       onNotice?.(outcome.ok
-        ? { ok: true, text: `${outcome.editor ? `已用 ${outcome.editor} 打开` : '已用系统默认应用打开'}：${outcome.target || file}` }
-        : { ok: false, text: outcome.error || '无法打开外部编辑器' })
+        ? { ok: true, text: `${outcome.editor ? `Took ${outcome.editor} open` : 'Opened with the system default application'}:${outcome.target || file}` }
+        : { ok: false, text: outcome.error || 'Cannot open external editor' })
     } catch (error) {
       onNotice?.({ ok: false, text: errorMessage(error) })
     } finally {
@@ -74,8 +74,8 @@ export function OpenInEditorMenu({ repo, file, line, onNotice, label = '在编�
     try {
       const outcome = await gitApi.reveal(repo, file)
       onNotice?.(outcome.ok
-        ? { ok: true, text: `已在文件管理器中显示：${outcome.target || file}` }
-        : { ok: false, text: outcome.error || '无法在文件管理器中显示这个文件' })
+        ? { ok: true, text: `Revealed in the file manager: ${outcome.target || file}` }
+        : { ok: false, text: outcome.error || 'Cannot reveal this file in the file manager' })
     } catch (error) {
       onNotice?.({ ok: false, text: errorMessage(error) })
     } finally {
@@ -86,24 +86,24 @@ export function OpenInEditorMenu({ repo, file, line, onNotice, label = '在编�
   return <div className={`dsh-git-editor-control ${className}`.trim()}
     onKeyDown={event => { if (event.key === 'Escape' && open) { event.stopPropagation(); setOpen(false) } }}>
     <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-open-editor"
-      title="在外部编辑器中打开这个文件（点击选择用哪个）" aria-haspopup="menu" aria-expanded={open}
+      title="Open this file in an external editor (click to choose which one)" aria-haspopup="menu" aria-expanded={open}
       disabled={disabled || busy} onClick={() => setOpen(value => !value)}>
       <IconExternalLink size={size} /><span>{label}</span><IconChevronDown size={12} />
     </button>
     {open && <>
       <div className="dsh-git-editor-backdrop" onClick={() => setOpen(false)} />
-      <div className="dsh-git-editor-menu" role="menu" aria-label="选择外部编辑器">
+      <div className="dsh-git-editor-menu" role="menu" aria-label="Select external editor">
         {/* The OS association is what a plain double click would use, so it leads the list. */}
         <button type="button" role="menuitem" className="dsh-git-editor-option"
-          title="用系统当前关联的默认应用打开" onClick={() => { void choose(SYSTEM_EDITOR) }}>
-          <IconFile size={15} /><span className="dsh-git-editor-label">系统默认应用</span>
-          <span className="dsh-git-editor-tag">（默认）</span>
+          title="Open with the system's current default application" onClick={() => { void choose(SYSTEM_EDITOR) }}>
+          <IconFile size={15} /><span className="dsh-git-editor-label">System default application</span>
+          <span className="dsh-git-editor-tag">(default)</span>
         </button>
         {!editors && !loadError && <div className="dsh-git-editor-hint" role="status">
-          <span className="dsh-git-editor-spinner" aria-hidden="true" />正在检测已安装的编辑器…
+          <span className="dsh-git-editor-spinner" aria-hidden="true" />Detecting installed editors…
         </div>}
         {loadError && <div className="dsh-git-editor-hint dsh-git-error" role="alert">{loadError}</div>}
-        {editors?.length === 0 && <div className="dsh-git-editor-hint">没有检测到编辑器命令行</div>}
+        {editors?.length === 0 && <div className="dsh-git-editor-hint">No editor command line detected</div>}
         {editors?.map(choice => <button key={choice.command} type="button" role="menuitem" className="dsh-git-editor-option"
           title={choice.command} onClick={() => { void choose(choice.command) }}>
           {/* The host reads the application's real icon; only when it has none do we draw one. */}
@@ -113,8 +113,8 @@ export function OpenInEditorMenu({ repo, file, line, onNotice, label = '在编�
           <span className="dsh-git-editor-label">{choice.label}</span>
         </button>)}
         <button type="button" role="menuitem" className="dsh-git-editor-option dsh-git-editor-option-split"
-          title="在系统文件管理器中选中这个文件" onClick={() => { void reveal() }}>
-          <IconFolderTree size={14} /><span className="dsh-git-editor-label">显示文件位置</span>
+          title="Reveal this file in the system file manager" onClick={() => { void reveal() }}>
+          <IconFolderTree size={14} /><span className="dsh-git-editor-label">Show file location</span>
         </button>
       </div>
     </>}

@@ -137,7 +137,7 @@ export class GitService {
   /** Repository root, or a throw for callers whose operation only makes sense inside one. */
   private async requireRepo(cwd: string): Promise<string> {
     const root = await this.getRepoRoot(cwd)
-    if (!root) throw new Error('当前目录不是 Git 仓库')
+    if (!root) throw new Error('The current directory is not a Git repository')
     return root
   }
 
@@ -149,10 +149,10 @@ export class GitService {
     if (typeof value !== 'string' || !value) throw new Error('Invalid path')
     if (/[\0\r\n]/.test(value)) throw new Error('Invalid path')
     const normalized = value.replace(/\\/g, '/')
-    if (normalized.startsWith('/') || /^[a-zA-Z]:/.test(normalized)) throw new Error('路径必须是仓库内的相对路径')
+    if (normalized.startsWith('/') || /^[a-zA-Z]:/.test(normalized)) throw new Error('The path must be a relative path inside the repository')
     const resolved = resolve(root, normalized)
     const rel = relative(root, resolved)
-    if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('路径超出仓库范围')
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('Path is outside the repository')
     return rel.replace(/\\/g, '/')
   }
 
@@ -174,14 +174,14 @@ export class GitService {
   }
 
   private async assertPaths(root: string, values: unknown, allowUntracked: boolean): Promise<string[]> {
-    if (!Array.isArray(values) || values.length === 0) throw new Error('未选择任何文件')
-    if (values.length > 2000) throw new Error('一次操作的文件过多')
+    if (!Array.isArray(values) || values.length === 0) throw new Error('No files selected')
+    if (values.length > 2000) throw new Error('Too many files in one operation')
     const paths = values.map(value => this.repoPath(root, String(value)))
     const known = await this.knownPaths(root)
     for (const path of paths) {
       if (known.tracked.has(path)) continue
       if (allowUntracked && known.untracked.has(path)) continue
-      throw new Error(`Git 不认识这个路径：${path}`)
+      throw new Error(`Git does not recognize this path: ${path}`)
     }
     return [...new Set(paths)]
   }
@@ -199,7 +199,7 @@ export class GitService {
       const output = [result.stdout, options.includeStderr ? result.stderr : ''].join('\n').trim()
       return { ok: true, output: output || undefined }
     }
-    return { ok: false, error: (result.stderr.trim() || result.stdout.trim()) || `git ${args[0]} 失败（退出码 ${result.exitCode}）` }
+    return { ok: false, error: (result.stderr.trim() || result.stdout.trim()) || `git ${args[0]} failed (exit code ${result.exitCode})` }
   }
 
   /** Wraps a mutation so a validation failure becomes a reported error, not a throw. */
@@ -332,7 +332,7 @@ export class GitService {
       const root = await this.requireRepo(cwd)
       await this.branchName(root, name)
       const current = (await this.status(root)).branch
-      if (current === name) return { ok: false, error: '不能删除当前所在的分支' }
+      if (current === name) return { ok: false, error: 'Cannot delete the branch you are currently on' }
       return this.action(['branch', force ? '-D' : '-d', '--', name], root)
     })
   }
@@ -534,7 +534,7 @@ export class GitService {
     // Porcelain output is color-free by definition; `--no-color` is ambiguous in some Git builds.
     // `blame` takes a single filename (not pathspec magic), so keep the validated path literal.
     const result = await this.runner.run(['blame', '--line-porcelain', '--', relativePath], root)
-    if (result.exitCode !== 0) throw new Error(result.stderr.trim() || '无法读取该文件的逐行归属')
+    if (result.exitCode !== 0) throw new Error(result.stderr.trim() || 'Cannot read line-by-line attribution for this file')
     const all = parseBlamePorcelain(result.stdout)
     return { path: relativePath, lines: all.slice(0, limit), truncated: all.length > limit, totalLines: all.length }
   }
@@ -738,7 +738,7 @@ export class GitService {
       const known = await this.knownPaths(root)
       const discarded: string[] = []
       for (const path of safe) {
-        if (known.tracked.has(path)) return { ok: false, error: `该文件已被 Git 跟踪，请使用「撤销更改」：${path}` }
+        if (known.tracked.has(path)) return { ok: false, error: `This file is already tracked by Git; use "Revert changes": ${path}` }
         await rm(join(root, path), { recursive: true, force: true })
         discarded.push(path)
       }
@@ -763,7 +763,7 @@ export class GitService {
       const skipped = safe.filter(path => !added.includes(path))
       if (!added.length) return { ok: true, added, skipped }
       const prefix = existing && !existing.endsWith('\n') ? '\n' : ''
-      const header = existing ? '' : '# 由 DSH Git 面板添加\n'
+      const header = existing ? '' : '# Added by the DSH Git panel\n'
       await mkdir(dirname(target), { recursive: true })
       await appendFile(target, `${prefix}${header}${added.join('\n')}\n`, 'utf8')
       return { ok: true, added, skipped }
@@ -777,9 +777,9 @@ export class GitService {
   async applyPatch(cwd: string, patch: unknown, options: { reverse?: boolean; cached?: boolean } = {}): Promise<ActionResult> {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
-      if (typeof patch !== 'string' || !patch.trim()) throw new Error('补丁内容为空')
-      if (Buffer.byteLength(patch, 'utf8') > MAX_PATCH_BYTES) throw new Error('补丁过大')
-      if (!/^diff --git /m.test(patch)) throw new Error('补丁格式无法识别')
+      if (typeof patch !== 'string' || !patch.trim()) throw new Error('Patch content is empty')
+      if (Buffer.byteLength(patch, 'utf8') > MAX_PATCH_BYTES) throw new Error('Patch too large')
+      if (!/^diff --git /m.test(patch)) throw new Error('Unrecognized patch format')
       const args = ['apply', '--recount', '--whitespace=nowarn']
       if (options.cached !== false) args.push('--cached')
       if (options.reverse) args.push('--reverse')
@@ -793,7 +793,7 @@ export class GitService {
       const root = await this.requireRepo(cwd)
       const amend = options.amend === true
       const text = typeof options.message === 'string' ? options.message : ''
-      if (!amend && !text.trim()) throw new Error('提交信息不能为空')
+      if (!amend && !text.trim()) throw new Error('Commit message cannot be empty')
       // Reusing the previous message means `--amend --no-edit`; there is no way to
       // keep it while also piping an empty message through `-F -`.
       const keepMessage = amend && !text.trim()
@@ -832,13 +832,13 @@ export class GitService {
       const [safe] = await this.assertPaths(root, [file], true)
       const fullPath = join(root, ...safe.split('/'))
       const info = await lstat(fullPath)
-      if (!info.isFile()) return { ok: false, error: '这个路径不是一个文件' }
+      if (!info.isFile()) return { ok: false, error: 'This path is not a file' }
       const [realRoot, realFile] = await Promise.all([realpath(root), realpath(fullPath)])
       const resolvedPath = relative(realRoot, realFile)
       if (!resolvedPath || resolvedPath === '..' || resolvedPath.startsWith(`..${sep}`) || isAbsolute(resolvedPath)) {
-        return { ok: false, error: '路径超出仓库范围' }
+        return { ok: false, error: 'Path is outside the repository' }
       }
-      if (info.size > MAX_BLOB_BYTES) return { ok: false, error: `文件超过 ${Math.round(MAX_BLOB_BYTES / 1_000_000)}MB，无法内联预览` }
+      if (info.size > MAX_BLOB_BYTES) return { ok: false, error: `File exceeds ${Math.round(MAX_BLOB_BYTES / 1_000_000)}MB, cannot preview inline` }
       return { ok: true, bytes: await readFile(realFile), type: blobType(safe) }
     } catch (error) {
       return { ok: false, error: message(error) }
@@ -892,11 +892,11 @@ export class GitService {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
       const state = await this.operationState(root)
-      if (!state.kind) return { ok: false, error: '当前没有进行中的操作' }
+      if (!state.kind) return { ok: false, error: 'No operation is in progress' }
       const command = state.kind === 'am' ? 'am' : state.kind
-      if (command === 'apply' || command === 'bisect') return { ok: false, error: `不支持对 ${state.kind} 执行该操作` }
-      if (step === 'skip' && command === 'merge') return { ok: false, error: '合并无法跳过，请继续或中止' }
-      if (step === 'continue' && state.conflicts.length > 0) return { ok: false, error: '仍有未解决的冲突文件' }
+      if (command === 'apply' || command === 'bisect') return { ok: false, error: `Not supported for ${state.kind} perform this operation` }
+      if (step === 'skip' && command === 'merge') return { ok: false, error: 'The merge cannot be skipped; continue or abort' }
+      if (step === 'continue' && state.conflicts.length > 0) return { ok: false, error: 'Unresolved conflict files remain' }
       const flag = step === 'continue' ? '--continue' : step === 'abort' ? '--abort' : '--skip'
       return this.action([command, flag], root)
     })
@@ -916,11 +916,11 @@ export class GitService {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
       const parent = await this.runner.run(['rev-parse', '--verify', '--quiet', 'HEAD~1^{commit}'], root)
-      if (parent.exitCode !== 0) throw new Error('没有可撤销的上一次提交（当前是第一个提交）')
+      if (parent.exitCode !== 0) throw new Error('No previous commit to undo (this is the first commit)')
       const undone = await this.runner.run(['log', '-1', '-z', '--format=%h%x00%s', '--no-color'], root)
       const [shortHash, summary] = undone.stdout.split('\0')
       const result = await this.action(['reset', '--soft', 'HEAD~1'], root)
-      return result.ok ? { ...result, shortHash, summary, output: result.output || `已撤销提交 ${shortHash}` } : result
+      return result.ok ? { ...result, shortHash, summary, output: result.output || `Reverted commit ${shortHash}` } : result
     })
   }
 
@@ -930,10 +930,10 @@ export class GitService {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
       const remotes = await this.remotes(root)
-      if (remotes.length === 0) return { ok: false, error: '没有配置任何远程仓库' }
+      if (remotes.length === 0) return { ok: false, error: 'No remotes are configured' }
       if (options.remote) {
         this.safeRef(options.remote)
-        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`未知的远程仓库：${options.remote}`)
+        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`Unknown remote repository:${options.remote}`)
       }
       const args = ['fetch', ...(options.prune !== false ? ['--prune'] : []), ...(options.remote ? [options.remote] : [])]
       return this.action(args, root, { timeoutMs: NETWORK_TIMEOUT_MS })
@@ -944,10 +944,10 @@ export class GitService {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
       const remotes = await this.remotes(root)
-      if (remotes.length === 0) return { ok: false, error: '没有配置任何远程仓库' }
+      if (remotes.length === 0) return { ok: false, error: 'No remotes are configured' }
       if (options.remote) {
         this.safeRef(options.remote)
-        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`未知的远程仓库：${options.remote}`)
+        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`Unknown remote repository:${options.remote}`)
       }
       if (options.branch) await this.branchName(root, options.branch)
       const mode = options.mode ?? 'ff-only'
@@ -963,14 +963,14 @@ export class GitService {
     return this.guarded(async () => {
       const root = await this.requireRepo(cwd)
       const remotes = await this.remotes(root)
-      if (remotes.length === 0) return { ok: false, error: '没有配置任何远程仓库' }
+      if (remotes.length === 0) return { ok: false, error: 'No remotes are configured' }
       const status = await this.status(root)
       const branch = options.branch || (status.detached ? '' : status.branch)
-      if (!branch) return { ok: false, error: 'HEAD 处于分离状态，请先指定要推送的分支' }
+      if (!branch) return { ok: false, error: 'HEAD is detached, specify the branch to push first' }
       await this.branchName(root, branch)
       if (options.remote) {
         this.safeRef(options.remote)
-        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`未知的远程仓库：${options.remote}`)
+        if (!remotes.some(remote => remote.name === options.remote)) throw new Error(`Unknown remote repository:${options.remote}`)
       }
       const remote = options.remote || await this.defaultRemote(root, branch, remotes.map(item => item.name))
       this.safeRef(remote)
@@ -1010,7 +1010,7 @@ export class GitService {
       if (options.message?.trim()) args.push('-m', options.message.trim())
       const result = await this.action(args, root)
       const text = `${result.output ?? ''}${result.error ?? ''}`
-      if (result.ok && /No local changes to save/i.test(text)) return { ok: false, error: '没有可以储藏的改动' }
+      if (result.ok && /No local changes to save/i.test(text)) return { ok: false, error: 'There are no changes to stash' }
       return result
     })
   }
@@ -1074,7 +1074,7 @@ export class GitService {
     const wanted = resolve(root, worktreePath)
     const items = await this.worktrees(root)
     const match = items.find(item => resolve(item.path) === wanted)
-    if (!match) throw new Error('该路径不是当前仓库登记的工作树')
+    if (!match) throw new Error('This path is not a worktree registered for the current repository')
     return match.path
   }
 

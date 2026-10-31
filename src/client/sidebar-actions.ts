@@ -14,17 +14,17 @@ export const GIT_PANEL_TYPES: Record<GitPanelView, string> = Object.fromEntries(
 /** Kept under its original module name so branch/popover callers keep one navigation API. */
 export function createGitPanelOpener(scope: any) {
   return async (view: GitPanelView, target: { sessionId?: string; cwd: string }): Promise<void> => {
-    if (!isGitPanelView(view)) throw new Error('未知的 Git 页面')
-    if (!target.cwd) throw new Error('请先选择项目目录')
+    if (!isGitPanelView(view)) throw new Error('Unknown Git page')
+    if (!target.cwd) throw new Error('Please select a project directory first')
     const refused = gitViewError()
-    if (refused) throw new Error(`Git 工作台注册失败：${refused}`)
+    if (refused) throw new Error(`Failed to register the Git workbench: ${refused}`)
     let sessionId = target.sessionId
     if (!sessionId) {
       const workspace = await scope.workspaces.create({ path: target.cwd })
       sessionId = await scope.uiWorkspace.connectWorkspace(workspace.workspaceId)
       await scope.uiWorkspace.openWorkspace(workspace.workspaceId)
     }
-    if (!sessionId) throw new Error('工作区未返回可用的会话')
+    if (!sessionId) throw new Error('The workspace did not return a usable session')
     setActiveGitView(sessionId, target.cwd, view)
     await openGitSessionView(sessionId, target.cwd)
   }

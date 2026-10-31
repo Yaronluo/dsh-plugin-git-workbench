@@ -27,7 +27,7 @@ test('sidechat tab is hidden, reuses the actual sidebar conversation, and isolat
  const descriptor=f.descriptors.get(GIT_SIDECHAT_TYPE)
  assert.equal(descriptor.hidden,true);assert.equal(descriptor.single,true)
  const pending=f.opener('parent-1','/repo','sensitive prompt')
- const rejected=assert.rejects(pending,/已关闭/)
+ const rejected=assert.rejects(pending,/side chat was closed/)
  assert.equal(f.calls.length,1)
  assert.deepEqual(f.calls[0].scope,{sessionId:'parent-1',cwd:'/repo'})
  assert.equal(f.calls[0].seed.target,'right')
@@ -40,7 +40,7 @@ test('sidechat tab is hidden, reuses the actual sidebar conversation, and isolat
 })
 test('a disabled sidechat falls back to an ordinary new conversation and fills only its draft',async t=>{
  const f=fixture();t.after(f.dispose)
- await assert.rejects(f.opener(undefined,'/repo','text'),/当前会话/)
+ await assert.rejects(f.opener(undefined,'/repo','text'),/project directory for the current session/)
  f.sidebar.isTabEnabled=()=>false
  assert.equal(await f.opener('s','/repo','text'),'conversation')
  assert.equal(f.calls.length,0)
@@ -59,13 +59,13 @@ test('double clicks share one pending sidechat insertion and failures clear the 
  const duplicate=f.opener('s','/repo','prompt')
  assert.equal(first,duplicate)
  assert.equal(f.calls.length,1)
- const rejected=assert.rejects(first,/已关闭/)
+ const rejected=assert.rejects(first,/side chat was closed/)
  f.descriptors.get(GIT_SIDECHAT_TYPE).onClose({id:GIT_SIDECHAT_TYPE},{sessionId:'s'})
  await rejected
  const retry=f.opener('s','/repo','prompt')
  assert.notEqual(retry,first)
  assert.equal(f.calls.length,2)
- const retried=assert.rejects(retry,/已关闭/)
+ const retried=assert.rejects(retry,/side chat was closed/)
  f.descriptors.get(GIT_SIDECHAT_TYPE).onClose({id:GIT_SIDECHAT_TYPE},{sessionId:'s'})
  await retried
 })
@@ -81,7 +81,7 @@ test('double clicks create only one fallback conversation while later intentiona
 test('unloading the integration cancels queued requests and clears scoped callbacks',async()=>{
  const f=fixture()
  const pending=f.opener('s','/repo','text')
- const rejected=assert.rejects(pending,/已卸载/)
+ const rejected=assert.rejects(pending,/was unmounted/)
  f.dispose();await rejected
  assert.equal(f.descriptors.has(GIT_SIDECHAT_TYPE),false)
  assert.equal(await f.opener('s','/repo','fallback'),'conversation')

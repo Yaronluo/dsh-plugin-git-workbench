@@ -66,9 +66,9 @@ export function collectClientReport(build = CLIENT_BUILD): ClientReport {
     probe.setAttribute('aria-hidden', 'true')
     probe.style.cssText = 'position:fixed;left:-10000px;top:0;width:200px;height:20px'
     const ui = document.createElement('span')
-    ui.textContent = '字体'
+    ui.textContent = 'Font'
     const code = document.createElement('code')
-    code.textContent = 'master（当前检出）'
+    code.textContent = 'master (currently checked out)'
     probe.append(ui, code)
     document.body.appendChild(probe)
     report.probeUiFont = computedFont(ui)
@@ -108,7 +108,7 @@ export function fontAvailability(families: readonly string[] = PROBE_FAMILIES): 
   try {
     const ctx = document.createElement('canvas').getContext('2d')
     if (!ctx) return available
-    const sample = '字体样本 Wg1'
+    const sample = 'Font sample Wg1'
     ctx.font = '32px monospace'
     const base = ctx.measureText(sample).width
     for (const family of families) {
@@ -185,12 +185,12 @@ export function collectPanelDiagnostics(root: HTMLElement | null | undefined): P
     for (const className of PANEL_PROBE_CLASSES) {
       const element = document.createElement('div')
       element.className = className
-      element.textContent = '字体样本 master'
+      element.textContent = 'Font sample master'
       holder.appendChild(element)
       made.push({ selector: `.${className}`, element })
     }
     const code = document.createElement('code')
-    code.textContent = 'master（当前检出）'
+    code.textContent = 'master (currently checked out)'
     holder.appendChild(code)
     made.push({ selector: 'code', element: code })
     root.appendChild(holder)

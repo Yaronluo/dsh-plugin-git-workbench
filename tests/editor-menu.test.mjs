@@ -188,7 +188,7 @@ test('the editor button is a chooser, not a bet on whatever the host happens to 
   const trigger = triggerOf(f.tree)
   assert.equal(trigger.props['aria-haspopup'], 'menu')
   assert.equal(trigger.props['aria-expanded'], false)
-  assert.match(trigger.props.title, /点击选择/)
+  assert.match(trigger.props.title, /click to choose which one/)
   assert.equal(menuCount(f.tree), 0)
   assert.equal(f.calls.listEditors, 0)
 })
@@ -197,9 +197,9 @@ test('opening the menu lists the editors the host really found, plus the system 
   const f = fixture()
   await f.click(triggerOf(f.tree))
   const options = optionsOf(f.tree)
-  assert.deepEqual(options.map(labelOf), ['系统默认应用', 'VS Code', 'Zed', '显示文件位置'])
+  assert.deepEqual(options.map(labelOf), ['System default application', 'VS Code', 'Zed', 'Show file location'])
   // The OS association leads, tagged the way Windows 11 tags the double-click handler.
-  assert.deepEqual(nodes(options[0], node => node.type === 'span').map(node => node.props.children), ['系统默认应用', '（默认）'])
+  assert.deepEqual(nodes(options[0], node => node.type === 'span').map(node => node.props.children), ['System default application', '(default)'])
   // The command is no longer a second column of the row; it waits in the tooltip.
   assert.deepEqual(options.slice(1, 3).map(option => option.props.title), ['code', 'zed'])
   assert.equal(f.calls.listEditors, 1)
@@ -212,7 +212,7 @@ test('choosing an editor sends exactly that command and reports what opened', as
   await f.click(triggerOf(f.tree))
   await f.click(optionByLabel(f.tree, 'Zed'))
   assert.deepEqual(f.calls.openInEditor, [['D:/repo', 'src/a.ts', 12, 'zed']])
-  assert.deepEqual(f.notices.at(-1), { ok: true, text: '已用 Zed 打开：src/a.ts' })
+  assert.deepEqual(f.notices.at(-1), { ok: true, text: 'Took Zed open:src/a.ts' })
   assert.equal(menuCount(f.tree), 0)
   assert.equal(triggerOf(f.tree).props['aria-expanded'], false)
 })
@@ -220,25 +220,25 @@ test('choosing an editor sends exactly that command and reports what opened', as
 test('the system default application is an explicit entry that asks for no editor', async () => {
   const f = fixture()
   await f.click(triggerOf(f.tree))
-  await f.click(optionByLabel(f.tree, '系统默认应用'))
+  await f.click(optionByLabel(f.tree, 'System default application'))
   assert.deepEqual(f.calls.openInEditor, [['D:/repo', 'src/a.ts', 12, 'system']])
-  assert.deepEqual(f.notices.at(-1), { ok: true, text: '已用系统默认应用打开：src/a.ts' })
+  assert.deepEqual(f.notices.at(-1), { ok: true, text: 'Opened with the system default application:src/a.ts' })
 })
 
 test('the footer reveals the file in the file manager instead of opening it in an editor', async () => {
   const f = fixture()
   await f.click(triggerOf(f.tree))
-  await f.click(optionByLabel(f.tree, '显示文件位置'))
+  await f.click(optionByLabel(f.tree, 'Show file location'))
   assert.deepEqual(f.calls.reveal, [['D:/repo', 'src/a.ts']])
   assert.deepEqual(f.calls.openInEditor, [])
-  assert.deepEqual(f.notices.at(-1), { ok: true, text: '已在文件管理器中显示：src/a.ts' })
+  assert.deepEqual(f.notices.at(-1), { ok: true, text: 'Revealed in the file manager: src/a.ts' })
   assert.equal(menuCount(f.tree), 0)
 })
 
 test('a refused reveal shows the host reason instead of pretending it opened', async () => {
   const f = fixture({ reveal: async () => ({ ok: false, error: '无法打开文件管理器' }) })
   await f.click(triggerOf(f.tree))
-  await f.click(optionByLabel(f.tree, '显示文件位置'))
+  await f.click(optionByLabel(f.tree, 'Show file location'))
   assert.deepEqual(f.notices.at(-1), { ok: false, text: '无法打开文件管理器' })
 })
 
@@ -246,8 +246,8 @@ test('a machine without editor CLIs still opens something and says so', async ()
   const f = fixture({ editors: [] })
   await f.click(triggerOf(f.tree))
   const hint = nodes(f.tree, node => String(node.props?.className || '').includes('dsh-git-editor-hint'))[0]
-  assert.match(textOf(hint), /没有检测到编辑器命令行/)
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', '显示文件位置'])
+  assert.match(textOf(hint), /No editor command line detected/)
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['System default application', 'Show file location'])
 })
 
 test('a refused open shows the host reason instead of pretending it opened', async () => {
@@ -270,14 +270,14 @@ test('a failing probe is shown, keeps the usable entry, and is retried on reopen
   const alert = nodes(f.tree, node => node.props?.role === 'alert')
   assert.equal(alert.length, 1)
   assert.match(textOf(alert[0]), /PATH 读取失败/)
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', '显示文件位置'])
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['System default application', 'Show file location'])
 
   await f.keyDown(f.tree, 'Escape')
   assert.equal(menuCount(f.tree), 0)
 
   f.setApi({ listEditors: async () => [{ command: 'zed', label: 'Zed', goto: false }] })
   await f.click(triggerOf(f.tree))
-  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['系统默认应用', 'Zed', '显示文件位置'])
+  assert.deepEqual(optionsOf(f.tree).map(labelOf), ['System default application', 'Zed', 'Show file location'])
 })
 
 test('the host is asked once per session, not on every render', async () => {

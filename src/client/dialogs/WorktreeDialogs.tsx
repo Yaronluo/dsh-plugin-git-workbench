@@ -5,7 +5,7 @@ import { IconCheck, IconClose, IconExternalLink, IconFolderTree, IconRefresh, Ic
 import { DialogShell } from './DialogShell.js'
 import { GitPanelContext } from '../panels/panel-context.js'
 
-const message = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : '操作失败'
+const message = (error: unknown) => error instanceof Error ? error.message : typeof error === 'string' ? error : 'Operation failed'
 
 export function CreateWorktreeDialog({ path, currentBranch, onClose, onSuccess, onOpenWorktree }: {
   path: string; currentBranch?: string; onClose: () => void; onSuccess?: (worktreePath: string) => void
@@ -26,7 +26,7 @@ export function CreateWorktreeDialog({ path, currentBranch, onClose, onSuccess, 
       let destination = createdPath
       if (!destination) {
         const result = await gitApi.createWorktree(path, name.trim(), base.trim() || undefined)
-        if (!result.ok || !result.path) throw new Error(message(result.error || '创建工作树 失败'))
+        if (!result.ok || !result.path) throw new Error(message(result.error || 'Worktree creation failed'))
         destination = result.path
         setCreatedPath(destination)
         onSuccess?.(destination)
@@ -37,22 +37,22 @@ export function CreateWorktreeDialog({ path, currentBranch, onClose, onSuccess, 
     finally { setSubmitting(false) }
   }
 
-  return <DialogShell title='创建工作树' onClose={onClose} busy={submitting}>
+  return <DialogShell title='Create worktree' onClose={onClose} busy={submitting}>
     <div className='dsh-git-modal-header'>
-      <span><IconWorktree size={16} /> 创建工作树</span>
-      <button type='button' aria-label='关闭' className='dsh-git-icon-btn' disabled={submitting} onClick={onClose}><IconClose size={16} /></button>
+      <span><IconWorktree size={16} /> Create worktree</span>
+      <button type='button' aria-label='Close' className='dsh-git-icon-btn' disabled={submitting} onClick={onClose}><IconClose size={16} /></button>
     </div>
     <form onSubmit={handleSubmit}>
       <div className='dsh-git-modal-body'>
-        <div className='dsh-git-muted' style={{ fontSize: 13 }}>独立工作树可避免并行任务相互覆盖。{onOpenWorktree ? '创建后将在工作区中打开。' : '当前入口仅创建工作树，不自动创建会话。'}</div>
-        <label>工作树任务标识<input className='dsh-git-input' value={name} onChange={event => setName(event.target.value)} disabled={submitting || !!createdPath} placeholder='例如 feature-login' autoFocus /></label>
-        <label>基线分支<input className='dsh-git-input' value={base} onChange={event => setBase(event.target.value)} disabled={submitting || !!createdPath} /></label>
-        {createdPath && <div role='status'>已创建：{createdPath}</div>}
-        {error && <div className='dsh-git-error' role='alert'>{error}{createdPath ? '（工作树已保留，可重试打开）' : ''}</div>}
+        <div className='dsh-git-muted' style={{ fontSize: 13 }}>Separate worktrees keep parallel tasks from overwriting each other.{onOpenWorktree ? 'It will open in the workspace after creation.' : 'This entry only creates a worktree; it does not create a session automatically.'}</div>
+        <label>Worktree task id<input className='dsh-git-input' value={name} onChange={event => setName(event.target.value)} disabled={submitting || !!createdPath} placeholder='e.g. feature-login' autoFocus /></label>
+        <label>Base branch<input className='dsh-git-input' value={base} onChange={event => setBase(event.target.value)} disabled={submitting || !!createdPath} /></label>
+        {createdPath && <div role='status'>Created: {createdPath}</div>}
+        {error && <div className='dsh-git-error' role='alert'>{error}{createdPath ? '(the worktree was kept, you can retry opening it)' : ''}</div>}
       </div>
       <div className='dsh-git-modal-footer'>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={submitting} onClick={onClose}>关闭</button>
-        <button type='submit' className='dsh-git-btn dsh-git-btn-primary' disabled={submitting || (!createdPath && !name.trim())}>{submitting ? '处理中…' : createdPath ? '重试打开工作区' : onOpenWorktree ? '创建并打开工作区' : '创建工作树'}</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={submitting} onClick={onClose}>Close</button>
+        <button type='submit' className='dsh-git-btn dsh-git-btn-primary' disabled={submitting || (!createdPath && !name.trim())}>{submitting ? 'Processing…' : createdPath ? 'Retry opening workspace' : onOpenWorktree ? 'Create and open workspace' : 'Create worktree'}</button>
       </div>
     </form>
   </DialogShell>
@@ -116,7 +116,7 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     try {
       const result = await action()
       if (!result.ok) {
-        setActionError(result.error || '操作失败')
+        setActionError(result.error || 'Operation failed')
         return false
       }
       setNotice(success)
@@ -138,8 +138,8 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     setNotice(null)
     try {
       const result = await gitApi.reveal(path, worktreePath)
-      if (!result.ok) setActionError(result.error || '无法在文件管理器中显示工作树')
-      else setNotice(`已在文件管理器中显示：${result.target || worktreePath}`)
+      if (!result.ok) setActionError(result.error || 'Cannot reveal the worktree in the file manager')
+      else setNotice(`Revealed in the file manager: ${result.target || worktreePath}`)
     } catch (revealError) { setActionError(message(revealError)) }
   }
 
@@ -149,7 +149,7 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     setNotice(null)
     try {
       await onOpenWorktree(worktreePath)
-      setNotice(`已打开工作树：${worktreePath}`)
+      setNotice(`Opened worktree:${worktreePath}`)
     } catch (openError) { setActionError(message(openError)) }
   }
 
@@ -163,18 +163,18 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     try {
       const result = await gitApi.pruneWorktrees(path, true)
       if (!result.ok) {
-        setActionError(result.error || '清理预览失败')
+        setActionError(result.error || 'Cleanup preview failed')
         return
       }
       const output = result.output?.trim() || ''
-      setPruneOutput(output || '没有可清理的失效工作树。')
+      setPruneOutput(output || 'There are no stale worktrees to clean up.')
       setPruneReady(!!output)
     } catch (pruneError) { setActionError(message(pruneError)) }
     finally { if (alive.current) setBusy(null) }
   }
 
   const confirmPrune = async () => {
-    const completed = await mutate('prune', () => gitApi.pruneWorktrees(path, false), '已清理失效工作树', () => setPruneReady(false))
+    const completed = await mutate('prune', () => gitApi.pruneWorktrees(path, false), 'Cleaned up stale worktrees', () => setPruneReady(false))
     if (completed) setPruneOutput(null)
   }
 
@@ -183,7 +183,7 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     void mutate(
       `remove:${worktreePath}`,
       () => gitApi.removeWorktree(path, worktreePath, forceDelete),
-      '已删除工作树',
+      'Worktree deleted',
       () => { setPendingDelete(null); setForceDelete(false) },
     )
   }
@@ -195,60 +195,60 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
     {loadError && <div className='dsh-git-error' role='alert'>{loadError}</div>}
 
     {pruneOutput !== null && <div className='dsh-git-section'>
-      <div className='dsh-git-section-head'>清理预览</div>
+      <div className='dsh-git-section-head'>Prune preview</div>
       <pre className='dsh-git-code-box'>{pruneOutput}</pre>
-      {!pruneReady && <div className='dsh-git-muted' style={{ fontSize: 13 }}>只有工作树目录被手动删除或移走后，Git 才会留下失效登记；正常从本页移除不会产生残留。</div>}
+      {!pruneReady && <div className='dsh-git-muted' style={{ fontSize: 13 }}>Git leaves a stale entry only when a worktree directory is deleted or moved by hand; removing from this page leaves nothing behind.</div>}
       {pruneReady && <div className='dsh-git-panel-toolbar'>
-        <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={!!busy} onClick={() => void confirmPrune()}>{busy === 'prune' ? '正在清理…' : '确认清理失效工作树'}</button>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => { setPruneOutput(null); setPruneReady(false) }}>取消</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={!!busy} onClick={() => void confirmPrune()}>{busy === 'prune' ? 'Cleaning up…' : 'Confirm cleaning up stale worktrees'}</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => { setPruneOutput(null); setPruneReady(false) }}>Cancel</button>
       </div>}
     </div>}
 
-    <section className='dsh-git-section' aria-label='工作树列表'>
+    <section className='dsh-git-section' aria-label='Worktree list'>
       <div className='dsh-git-section-head'>
-        <span>工作树列表</span>
-        <span className='dsh-git-badge' aria-label={`共 ${list.length} 棵工作树`}>{list.length} 棵</span>
+        <span>Worktree list</span>
+        <span className='dsh-git-badge' aria-label={`Total ${list.length} worktrees`}>{list.length} trees</span>
       </div>
       <div className='dsh-git-scroll-list' aria-busy={loading}>
-        {loading ? <div className='dsh-git-panel-message'>正在读取工作树…</div>
+        {loading ? <div className='dsh-git-panel-message'>Reading worktrees…</div>
           : loadError && list.length === 0 ? null
             : list.length === 0 ? <div className='dsh-git-empty-state'>
               <div className='dsh-git-state-icon'><IconWorktree size={24} /></div>
-              <strong>暂无工作树</strong>
-              <p>创建工作树后，它会在独立目录检出分支，便于并行处理任务。</p>
+              <strong>No worktrees</strong>
+              <p>A worktree checks the branch out into its own directory, which helps with parallel tasks.</p>
             </div>
               : list.map(worktree => <article className='dsh-git-section' key={worktree.path}>
                 <div className='dsh-git-worktree-row'>
                   <div className='dsh-git-worktree-copy'>
-                    <strong>{worktree.branch || 'HEAD'}</strong>{worktree.isCurrent && '（当前检出）'}
+                    <strong>{worktree.branch || 'HEAD'}</strong>{worktree.isCurrent && '(current checkout)'}
                     <div className='dsh-git-muted dsh-git-worktree-path'>{worktree.path}</div>
                     <div>
-                      {(worktree.dirtyFiles || 0) > 0 && <span className='dsh-git-badge-warn'>{worktree.dirtyFiles} 个未提交改动</span>}
-                      {worktree.locked && <span className='dsh-git-badge' title={worktree.lockedReason || '工作树已锁定'}>已锁定{worktree.lockedReason ? ` · ${worktree.lockedReason}` : ''}</span>}
-                      {worktree.detached && <span className='dsh-git-badge'>已分离</span>}
-                      {worktree.prunable && <span className='dsh-git-badge-warn'>可清理</span>}
+                      {(worktree.dirtyFiles || 0) > 0 && <span className='dsh-git-badge-warn'>{worktree.dirtyFiles} uncommitted changes</span>}
+                      {worktree.locked && <span className='dsh-git-badge' title={worktree.lockedReason || 'Worktree is locked'}>Locked{worktree.lockedReason ? ` · ${worktree.lockedReason}` : ''}</span>}
+                      {worktree.detached && <span className='dsh-git-badge'>Detached</span>}
+                      {worktree.prunable && <span className='dsh-git-badge-warn'>Removable</span>}
                     </div>
                   </div>
                   <div className='dsh-git-stash-actions'>
-                    {onOpenWorktree && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void handleOpen(worktree.path)}><IconExternalLink size={15} />打开会话</button>}
-                    <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void handleReveal(worktree.path)}><IconFolderTree size={15} />在文件管理器中显示</button>
-                    {!worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' aria-expanded={lockTarget === worktree.path} disabled={!!busy} onClick={() => { setLockTarget(lockTarget === worktree.path ? null : worktree.path); setLockReason('') }}><IconWorktree size={15} />锁定</button>}
-                    {worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void mutate(`unlock:${worktree.path}`, () => gitApi.unlockWorktree(path, worktree.path), '已解锁工作树')}><IconCheck size={15} />解锁</button>}
-                    {!worktree.isCurrent && pendingDelete !== worktree.path && <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy || !!worktree.locked} title={worktree.locked ? '已锁定的工作树需先解锁才能移除' : undefined} onClick={() => { setForceDelete(false); setPendingDelete(worktree.path) }}><IconTrash size={15} />移除工作树</button>}
+                    {onOpenWorktree && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void handleOpen(worktree.path)}><IconExternalLink size={15} />Open session</button>}
+                    <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void handleReveal(worktree.path)}><IconFolderTree size={15} />Reveal in file manager</button>
+                    {!worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' aria-expanded={lockTarget === worktree.path} disabled={!!busy} onClick={() => { setLockTarget(lockTarget === worktree.path ? null : worktree.path); setLockReason('') }}><IconWorktree size={15} />Lock</button>}
+                    {worktree.locked && <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void mutate(`unlock:${worktree.path}`, () => gitApi.unlockWorktree(path, worktree.path), 'Worktree unlocked')}><IconCheck size={15} />Unlock</button>}
+                    {!worktree.isCurrent && pendingDelete !== worktree.path && <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy || !!worktree.locked} title={worktree.locked ? 'A locked worktree must be unlocked before it can be removed' : undefined} onClick={() => { setForceDelete(false); setPendingDelete(worktree.path) }}><IconTrash size={15} />Remove worktree</button>}
                   </div>
                 </div>
                 {lockTarget === worktree.path && <div className='dsh-git-panel-toolbar'>
-                  <input className='dsh-git-input' aria-label='锁定原因' placeholder='锁定原因（可选）' value={lockReason} onChange={event => setLockReason(event.target.value)} disabled={!!busy} />
-                  <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={!!busy} onClick={() => void mutate(`lock:${worktree.path}`, () => gitApi.lockWorktree(path, worktree.path, lockReason.trim() || undefined), '已锁定工作树', () => setLockTarget(null))}>{busy === `lock:${worktree.path}` ? '正在锁定…' : '确认锁定工作树'}</button>
-                  <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => setLockTarget(null)}>取消</button>
+                  <input className='dsh-git-input' aria-label='Lock reason' placeholder='Lock reason (optional)' value={lockReason} onChange={event => setLockReason(event.target.value)} disabled={!!busy} />
+                  <button type='button' className='dsh-git-btn dsh-git-btn-primary' disabled={!!busy} onClick={() => void mutate(`lock:${worktree.path}`, () => gitApi.lockWorktree(path, worktree.path, lockReason.trim() || undefined), 'Worktree locked', () => setLockTarget(null))}>{busy === `lock:${worktree.path}` ? 'Locking…' : 'Confirm locking worktree'}</button>
+                  <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => setLockTarget(null)}>Cancel</button>
                 </div>}
-                {pendingDelete === worktree.path && <div className='dsh-git-section' role='group' aria-label='确认移除工作树'>
-                  <div className='dsh-git-section-head'>确认移除工作树</div>
-                  <p>普通移除会拒绝含未提交改动的工作树。强制移除可能丢弃改动，请谨慎确认。</p>
-                  <label><input className='dsh-git-checkbox' type='checkbox' checked={forceDelete} onChange={event => setForceDelete(event.target.checked)} disabled={!!busy} />强制移除（可能丢弃未提交改动）</label>
+                {pendingDelete === worktree.path && <div className='dsh-git-section' role='group' aria-label='Confirm worktree removal'>
+                  <div className='dsh-git-section-head'>Confirm worktree removal</div>
+                  <p>A normal removal refuses a worktree with uncommitted changes. Force removal may discard them, so confirm carefully.</p>
+                  <label><input className='dsh-git-checkbox' type='checkbox' checked={forceDelete} onChange={event => setForceDelete(event.target.checked)} disabled={!!busy} />Force remove (may discard uncommitted changes)</label>
                   <div className='dsh-git-panel-toolbar'>
-                    <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy} onClick={() => confirmDelete(worktree.path)}>{forceDelete ? '确认强制移除工作树' : '确认移除工作树'}</button>
-                    <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => { setPendingDelete(null); setForceDelete(false) }}>取消</button>
+                    <button type='button' className='dsh-git-btn dsh-git-btn-danger' disabled={!!busy} onClick={() => confirmDelete(worktree.path)}>{forceDelete ? 'Confirm force-removing the worktree' : 'Confirm worktree removal'}</button>
+                    <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => { setPendingDelete(null); setForceDelete(false) }}>Cancel</button>
                   </div>
                 </div>}
               </article>)}
@@ -259,29 +259,29 @@ export function WorktreeManagerDialog({ path, onClose, onOpenWorktree }: {
   if (inline) return <div className='dsh-git-page'>
     <header className='dsh-git-page-header'>
       <div className='dsh-git-page-title'>
-        <h2>管理 Git 工作树</h2>
-        <p>查看独立工作目录的状态，并安全地打开、锁定或移除工作树。</p>
+        <h2>Manage Git worktrees</h2>
+        <p>Inspect standalone working directories and safely open, lock, or remove worktrees.</p>
       </div>
       <div className='dsh-git-page-actions'>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={loading || !!busy} onClick={() => setRefreshKey(value => value + 1)}><IconRefresh size={15} />刷新</button>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void previewPrune()}>{busy === 'prune-preview' ? '正在检查…' : '预览清理失效工作树'}</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={loading || !!busy} onClick={() => setRefreshKey(value => value + 1)}><IconRefresh size={15} />Refresh</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void previewPrune()}>{busy === 'prune-preview' ? 'Checking…' : 'Preview cleaning up stale worktrees'}</button>
       </div>
     </header>
     <div className='dsh-git-page-body'>{renderManagerBody()}</div>
   </div>
 
-  return <DialogShell title='管理 Git 工作树' onClose={closeDialog} busy={!!busy} style={{ width: 640 }}>
+  return <DialogShell title='Manage Git worktrees' onClose={closeDialog} busy={!!busy} style={{ width: 640 }}>
     <div className='dsh-git-modal-header'>
-      <span><IconWorktree size={16} /> 管理 Git 工作树</span>
-      <button type='button' aria-label='关闭' className='dsh-git-icon-btn' disabled={!!busy} onClick={closeDialog}><IconClose size={16} /></button>
+      <span><IconWorktree size={16} /> Manage Git worktrees</span>
+      <button type='button' aria-label='Close' className='dsh-git-icon-btn' disabled={!!busy} onClick={closeDialog}><IconClose size={16} /></button>
     </div>
     <div className='dsh-git-modal-body'>
       <div className='dsh-git-panel-toolbar'>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={loading || !!busy} onClick={() => setRefreshKey(value => value + 1)}><IconRefresh size={14} />刷新</button>
-        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void previewPrune()}>{busy === 'prune-preview' ? '正在检查…' : '预览清理失效工作树'}</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={loading || !!busy} onClick={() => setRefreshKey(value => value + 1)}><IconRefresh size={14} />Refresh</button>
+        <button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={() => void previewPrune()}>{busy === 'prune-preview' ? 'Checking…' : 'Preview cleaning up stale worktrees'}</button>
       </div>
       {renderManagerBody()}
     </div>
-    <div className='dsh-git-modal-footer'><button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={closeDialog}>完成</button></div>
+    <div className='dsh-git-modal-footer'><button type='button' className='dsh-git-btn dsh-git-btn-secondary' disabled={!!busy} onClick={closeDialog}>Done</button></div>
   </DialogShell>
 }

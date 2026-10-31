@@ -30,8 +30,8 @@ const VIEW_ICONS: Record<GitPanelView, (props: { size?: number }) => React.React
 function GitViewStrip({ view, onSelect }: { view: GitPanelView; onSelect: (next: GitPanelView) => void }) {
   const pages = GIT_VIEW_ENTRIES.filter(entry => entry.primary)
   const actions = GIT_VIEW_ENTRIES.filter(entry => !entry.primary)
-  return <div className="dsh-git-view-nav" aria-label="Git 导航">
-    <div className="dsh-git-view-pages" role="tablist" aria-label="Git 页面">
+  return <div className="dsh-git-view-nav" aria-label="Git navigation">
+    <div className="dsh-git-view-pages" role="tablist" aria-label="Git page">
       {pages.map(({ view: target }) => {
         const Icon = VIEW_ICONS[target]
         return <button key={target} type="button" role="tab" aria-selected={view === target}
@@ -103,20 +103,20 @@ export function GitSidebarPanel(props: any) {
     // The changes page owns its loading/empty/error presentation; keep it.
     if (view === 'changes') return <ChangesTab {...props} cwd={cwd} sessionId={sessionId} />
     if (error && !status) return <div className="dsh-git-empty-state">
-      <div className="dsh-git-state-icon"><IconBranchPlus size={24} /></div><strong>暂时无法读取仓库</strong>
+      <div className="dsh-git-state-icon"><IconBranchPlus size={24} /></div><strong>Cannot read the repository right now</strong>
       <p className="dsh-git-state-error" role="alert">{error}</p>
-      <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reload}>重新加载</button>
+      <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reload}>Reload</button>
     </div>
     if (status && !status.isGit) return <div className="dsh-git-empty-state">
-      <div className="dsh-git-state-icon"><IconFolderTree size={24} /></div><strong>当前目录不是 Git 仓库</strong>
-      <p>在项目中执行 <code>git init</code> 后即可在这里管理分支与工作树。</p>
-      <button type="button" className="dsh-git-btn dsh-git-btn-primary" onClick={reload}>重新加载</button>
+      <div className="dsh-git-state-icon"><IconFolderTree size={24} /></div><strong>The current directory is not a Git repository</strong>
+      <p>Run in project <code>git init</code> , then manage branches and worktrees here.</p>
+      <button type="button" className="dsh-git-btn dsh-git-btn-primary" onClick={reload}>Reload</button>
     </div>
     // 提交记录 / 工作树 自带加载态：这里再放一个占位加载，就会先看到“检测仓库”再看到
     // 页面自己的加载，变成连续两个加载画面。只有两个创建表单需要已解析的分支名，
     // 因此只有它们等在探测之后。
     const needsBranch = view === 'create-branch' || view === 'create-worktree'
-    if (needsBranch && !status) return <GitLoadingState title="正在检测 Git 仓库" hint="分支信息即将显示" />
+    if (needsBranch && !status) return <GitLoadingState title="Detecting Git repository" hint="Branch information will appear shortly" />
     // 仓库探测失败、非仓库的处理必须优先于每个页面自己的加载态：否则会在“不是 Git 仓库”
     // 的目录里显示一个永远转不完的加载画面。
     if (view === 'history') return <GitGraphDialog key={reloadKey} path={cwd} onClose={onClose} />

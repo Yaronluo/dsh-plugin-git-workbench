@@ -21,7 +21,7 @@ export interface PromptContext {
 }
 
 export const PATCH_LIMIT = 12_000
-export const TRUNCATION_NOTE = '\n…（补丁过长，已截断；如需完整内容请让我逐个文件查看）'
+export const TRUNCATION_NOTE = '\n… (the patch is too long and was truncated; ask me to view it file by file if you need the full content)'
 
 /** An inline fence would break out of our own code block, so a longer fence is used. */
 export function fence(text: string): string {
@@ -36,33 +36,33 @@ export function truncatePatch(patch: string, limit = PATCH_LIMIT): string {
 }
 
 function pathList(label: string, paths: readonly string[] | undefined, empty: string): string {
-  if (!paths || paths.length === 0) return `- ${label}：${empty}`
+  if (!paths || paths.length === 0) return `- ${label}:${empty}`
   const shown = paths.slice(0, 40).map(path => `  - ${path}`)
-  if (paths.length > shown.length) shown.push(`  - …共 ${paths.length} 个文件`)
-  return `- ${label}（${paths.length}）：\n${shown.join('\n')}`
+  if (paths.length > shown.length) shown.push(`  - …total ${paths.length} files`)
+  return `- ${label}(${paths.length}):\n${shown.join('\n')}`
 }
 
 /** The repository state on its own: this is what "注入 Git 上下文" sends. */
 export function buildContextText(context: PromptContext): string {
-  const branch = context.branch || '（未知分支）'
+  const branch = context.branch || '(unknown branch)'
   const tracking = context.upstream
-    ? `，跟踪 ${context.upstream}${context.ahead ? `，领先 ${context.ahead} 个提交` : ''}${context.behind ? `，落后 ${context.behind} 个提交` : ''}`
-    : '，没有上游分支'
+    ? `, tracking ${context.upstream}${context.ahead ? `, ahead ${context.ahead} commits` : ''}${context.behind ? `, behind ${context.behind} commits` : ''}`
+    : ', no upstream branch'
   return [
-    '以下是我当前 Git 仓库的状态，请先阅读它，然后等我的问题：',
+    'Below is the current state of my Git repository, please read it first, then wait for my questions:',
     '',
-    ...(context.cwd ? [`- 仓库目录：${context.cwd}`] : []),
-    `- 当前分支：${branch}${tracking}`,
-    context.summary ? `- 变更概况：${context.summary}` : '- 变更概况：（未知）',
-    pathList('已暂存', context.staged, '（空）'),
-    pathList('未暂存', context.unstaged, '（空）'),
-    pathList('未跟踪', context.untracked, '（空）'),
-    pathList('冲突', context.conflicts, '（无）'),
+    ...(context.cwd ? [`- Repository directory:${context.cwd}`] : []),
+    `- Current branch:${branch}${tracking}`,
+    context.summary ? `- Change summary:${context.summary}` : '- Change summary: (unknown)',
+    pathList('Staged', context.staged, '(empty)'),
+    pathList('Unstaged', context.unstaged, '(empty)'),
+    pathList('Untracked', context.untracked, '(empty)'),
+    pathList('Conflict', context.conflicts, '(none)'),
   ].join('\n')
 }
 
 function stagedPatchBlock(context: PromptContext): string {
-  if (!context.patch) return '（暂存区没有可展示的补丁）'
+  if (!context.patch) return '(no patch to display for the index)'
   return fence(truncatePatch(context.patch))
 }
 
@@ -70,13 +70,13 @@ export function buildCommitPrompt(context: PromptContext): string {
   return [
     buildContextText(context),
     '',
-    '请根据上面**已暂存**的改动写一条提交信息。要求：',
-    '1. 第一行是简洁的祈使句标题，不超过 72 个字符，不要以句号结尾；',
-    '2. 如果有必要，空一行后写正文，说明「为什么」而不是逐条复述改了什么；',
-    '3. 使用与仓库现有提交信息一致的语言（我会在下面附上最近几条提交信息）。',
-    '4. 只输出提交信息本身，不要解释、不要加代码块、不要用引号包起来。',
+    'Please write a commit message based on the **staged** changes above. Requirements:',
+    '1. The first line is a concise imperative subject, no more than 72 characters, not ending with a period;',
+    '2. If necessary, leave a blank line and then write the body, explaining "why" instead of restating what changed item by item;',
+    '3. Use the same language as the repository\'s existing commit messages (I will include the most recent ones below).',
+    '4. Output only the commit message itself: no explanations, no code blocks, no quotes around it.',
     '',
-    '暂存区的补丁：',
+    'Staged patch:',
     stagedPatchBlock(context),
   ].join('\n')
 }
@@ -85,22 +85,22 @@ export function buildReviewPrompt(context: PromptContext): string {
   return [
     buildContextText(context),
     '',
-    '请审查这些改动，重点看：正确性缺陷、边界条件、可能的数据丢失或安全问题、',
-    '以及是否漏了测试或文档。按严重程度排序，给出文件与行号，并说明给出建议的理由。',
-    '如果某个改动看起来没问题，直接说没问题，不要为了凑数提建议。',
+    'Please review these changes, focusing on: correctness defects, edge cases, possible data loss or security issues,',
+    'and whether tests or docs are missing. Sort by severity, give the file and line number, and explain why you are making each suggestion.',
+    'If a change looks fine, just say it is fine, do not make suggestions just to fill space.',
     '',
-    '当前比较范围的补丁：',
-    context.patch ? fence(truncatePatch(context.patch)) : '（当前范围没有可展示的补丁）',
+    'Patch for the current comparison range: ',
+    context.patch ? fence(truncatePatch(context.patch)) : '(no patch to display for the current range)',
   ].join('\n')
 }
 
 export function buildExplainPrompt(file: { path: string; patch: string; statusLabel?: string }): string {
-  const status = file.statusLabel ? `（${file.statusLabel}）` : ''
+  const status = file.statusLabel ? `(${file.statusLabel})` : ''
   return [
-    `请解释 \`${file.path}\`${status} 的这些改动：改了什么、为什么可能这样改、有哪些影响面。`,
-    '用中文回答，先给一句话结论，再逐块说明。如果补丁里有需要我注意的风险，请指出来。',
+    `Please explain \`${file.path}\`${status} these changes: what changed, why it may have been changed this way, and what the impact is.`,
+    'Answer in English: give a one-sentence conclusion first, then explain block by block. If the patch contains risks I should pay attention to, point them out.',
     '',
-    '补丁：',
+    'Patch:',
     fence(truncatePatch(file.patch)),
   ].join('\n')
 }
@@ -113,12 +113,12 @@ export interface DeliveryResult {
 
 /** Resolve only after the right-side conversation has accepted the draft. */
 export async function deliverPrompt(scope: any, sessionId: string | undefined, text: string): Promise<DeliveryResult> {
-  if (!sessionId) return { ok: false, error: '当前没有可用的会话，无法打开侧边对话' }
-  if (typeof scope?.onOpenGitSidechat !== 'function') return { ok: false, error: 'Git 侧边对话尚未就绪，请启用侧边栏插件后刷新页面' }
+  if (!sessionId) return { ok: false, error: 'No session is available; cannot open the side chat' }
+  if (typeof scope?.onOpenGitSidechat !== 'function') return { ok: false, error: 'The Git side chat is not ready yet; enable the sidebar plugin and refresh the page' }
   try {
     const destination = await scope.onOpenGitSidechat(sessionId, scope.cwd || '', text)
     return { ok: true, mode: destination === 'conversation' ? 'new-conversation' : 'drafted' }
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : '无法打开侧边对话或填入提示词' }
+    return { ok: false, error: error instanceof Error ? error.message : 'Cannot open the side chat or fill in the prompt' }
   }
 }

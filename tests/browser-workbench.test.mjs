@@ -114,11 +114,11 @@ test('Chromium: large change lists/diffs scroll, page footer stays reachable, an
   if (process.env.DSH_WORKBENCH_SCREENSHOT_PATH) await page.screenshot({ path: process.env.DSH_WORKBENCH_SCREENSHOT_PATH, fullPage: false })
   // Exercise actual AI buttons through the integration and a controlled React composer.
   // StrictMode + delayed mounting reproduce the sidebar's asynchronous tab creation.
-  const draftActions=['注入 Git 上下文','AI 审查改动','AI 写信息','解释改动'];
+  const draftActions=['Inject Git context','AI review changes','AI write message','Explain changes'];
   for(let index=0;index<draftActions.length;index++) {
-    await page.evaluate(label=>{const menu=document.querySelector('.dsh-git-file-menu');if(label==='解释改动')menu.open=true;[...document.querySelectorAll('.dsh-git-workbench button')].find(node=>node.textContent.trim()===label).click()},draftActions[index]);
+    await page.evaluate(label=>{const menu=document.querySelector('.dsh-git-file-menu');if(label==='Explain changes')menu.open=true;[...document.querySelectorAll('.dsh-git-workbench button')].find(node=>node.textContent.trim()===label).click()},draftActions[index]);
     await page.waitForFunction(count=>window.__sideCalls.length===count,{timeout:5000},index+1);
-    await page.waitForFunction(label=>document.querySelector('.dsh-git-action-notice')?.textContent.includes('「'+label+'」提示词，确认后再发送'),{timeout:5000},['Git 上下文','审查改动','提交信息','解释这个文件'][index]);
+    await page.waitForFunction(label=>document.querySelector('.dsh-git-action-notice')?.textContent.includes('"'+label+'" prompt, confirm before sending'),{timeout:5000},['Git context','Review changes','Commit message','Explain this file'][index]);
   }
   const afterDoubleClicks=await page.evaluate(async(labels)=>{
     for(const label of labels){const button=[...document.querySelectorAll('.dsh-git-workbench button')].find(node=>node.textContent.trim()===label);button.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:2}))}
@@ -130,7 +130,7 @@ test('Chromium: large change lists/diffs scroll, page footer stays reachable, an
   assert.equal(drafted.value,drafted.state,'controlled React state, not only the DOM, must accept the prompt');
   assert.ok(drafted.value.startsWith('已有草稿\n\n'));
   assert.equal(drafted.sends,0,'opening a side conversation must never auto-send');
-  assert.equal((drafted.value.match(/仓库目录：\/repo/g)||[]).length,3,'StrictMode must not paste each prompt twice');
+  assert.equal((drafted.value.match(/Repository directory:\/repo/g)||[]).length,3,'StrictMode must not paste each prompt twice');
   assert.match(drafted.value,/STAGED_PATCH_SENTINEL/);
   for(const call of drafted.calls){assert.equal(call.seed.target,'right');assert.equal(call.scope.sessionId,'browser-test');assert.equal(call.scope.cwd,'/repo');assert.deepEqual(call.seed.meta,{autoCreate:true})}
   const windowsDraft=await page.evaluate(async()=>{await window.__openGitSidechat('browser-test','/repo','Windows patch\r\n+line one\r\n+line two\r');return window.__sideDraft});
@@ -147,18 +147,18 @@ test('Chromium: large change lists/diffs scroll, page footer stays reachable, an
   assert.equal((replayedDraft.match(/Replay marker/g)||[]).length,1,'effect replay must not append again after a reader edit');
   assert.ok(replayedDraft.endsWith(' (reader edit)'));
   await page.$eval('#side-fixture',node=>{node.style.display='none'});
-  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='提交记录').click())
+  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='Commit history').click())
   await page.waitForSelector('.dsh-git-graph-row')
   await page.click('.dsh-git-graph-row')
   await page.waitForFunction(() => document.body.textContent.includes('Details loaded'), {timeout:5000})
-  assert.equal(await page.evaluate(() => [...document.querySelectorAll('.dsh-git-workbench button')].some(node=>/返回/.test(node.textContent))),false)
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('.dsh-git-workbench button')].some(node=>/Back/.test(node.textContent))),false)
   await page.click('.dsh-git-tab-strip button:first-child')
   await page.waitForSelector('.dsh-git-graph-row', { visible: true })
   assert.deepEqual(errors, [])
   // A bad detail render must stay inside the local boundary, not retire the native view.
   await page.evaluate(() => { window.__gitData.detail.parents=null })
   await page.click('.dsh-git-graph-row')
-  await page.waitForFunction(() => document.body.textContent.includes('无法显示提交详情'))
+  await page.waitForFunction(() => document.body.textContent.includes('Cannot show commit details'))
   assert.ok(await page.$eval('.dsh-git-tab-strip button:first-child', node=>node.getBoundingClientRect().height>0))
   await page.evaluate(() => { window.__gitData.detail.parents=[] })
   await page.click('.dsh-git-empty-state button')
@@ -167,19 +167,19 @@ test('Chromium: large change lists/diffs scroll, page footer stays reachable, an
   await page.waitForSelector('.dsh-git-graph-row', { visible: true })
   assert.ok(errors.every(message=>message.includes('join')), JSON.stringify(errors))
   errors.length=0
-  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='储藏').click())
-  await page.waitForFunction(() => document.body.textContent.includes('没有储藏'))
+  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='Stashes').click())
+  await page.waitForFunction(() => document.body.textContent.includes('No stashes'))
   assert.equal(await page.$eval('.dsh-git-page-header', node=>getComputedStyle(node).display), 'flex')
   if (process.env.DSH_WORKBENCH_SCREENSHOT_PATH) await page.screenshot({path:process.env.DSH_WORKBENCH_SCREENSHOT_PATH.replace(/\.png$/, '-stashes.png')})
   await page.evaluate(() => { window.__gitData.worktrees=Array.from({length:30},(_,i)=>({path:`/repo/worktrees/feature-${i}`,branch:`feature-${i}`,isCurrent:i===0,dirtyFiles:i%3,locked:false,detached:false})) })
-  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='工作树').click())
+  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='Worktree').click())
   await page.waitForFunction(() => document.querySelectorAll('.dsh-git-worktree-row').length===30)
   await wheel('.dsh-git-view-content')
   await page.$eval('.dsh-git-view-content', node=>{node.scrollTop=0})
   if (process.env.DSH_WORKBENCH_SCREENSHOT_PATH) await page.screenshot({path:process.env.DSH_WORKBENCH_SCREENSHOT_PATH.replace(/\.png$/, '-worktrees.png')})
   // Compact windows must keep both review panes and the commit controls reachable.
   await page.setViewport({width:560,height:640})
-  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='变更').click())
+  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-view-tab')].find(node=>node.textContent==='Changes').click())
   await page.waitForSelector('.dsh-git-file-row')
   await page.$eval('.dsh-git-view-content', node=>{node.scrollTop=node.scrollHeight})
   assert.ok(await page.$eval('.dsh-git-commit-box', node=>node.getBoundingClientRect().bottom<=innerHeight+1))

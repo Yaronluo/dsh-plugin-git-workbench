@@ -163,7 +163,7 @@ test('selecting another commit file never renders the previous file patch under 
     nodes(f.tree, node => node.props?.className === 'dsh-git-detail-file')[1].props.onClick()
     const immediateTree = f.updateProps({})
     assert.doesNotMatch(text(immediateTree), /PATCH_a\.txt/)
-    assert.match(text(immediateTree), /正在读取文件差异/)
+    assert.match(text(immediateTree), /Reading file diff…/)
     f.flush()
     assert.equal(f.diffRequests.length, 2)
   } finally { f.dispose() }
@@ -178,6 +178,6 @@ test('changing repository/commit identity masks the previous commit before effec
 
     const next = f.updateProps({ path: '/other-repo', commitRef: 'commit-2' })
     assert.doesNotMatch(text(next), /Add two files/)
-    assert.match(text(next), /正在读取提交详情/)
+    assert.match(text(next), /Reading commit details…/)
   } finally { f.dispose() }
 })

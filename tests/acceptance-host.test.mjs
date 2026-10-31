@@ -425,7 +425,7 @@ test('real Cordis host scopes two repos, rejects missing upstream, and retries w
   await page.evaluate(path => { window.__delayNextWorkingDiff = true; window.mountChanges(path, 'browser-alpha', 'working-head') }, alpha)
   await page.waitForFunction(() => window.__delayedWorkingStarted, { timeout: 7_000 })
   await page.click('.dsh-git-compare-trigger')
-  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-compare-option')].find(button => button.textContent.includes('与上游分支对比')).click())
+  await page.evaluate(() => [...document.querySelectorAll('.dsh-git-compare-option')].find(button => button.textContent.includes('Compare with upstream')).click())
   await page.waitForFunction(() => document.body.textContent.includes('UPSTREAM_SENTINEL'), { timeout: 7_000 })
   const upstreamLabel = await page.$eval('.dsh-git-compare-trigger', node => node.textContent)
   await page.waitForFunction(() => window.__delayedWorkingFinished, { timeout: 5_000 })
@@ -440,20 +440,20 @@ test('real Cordis host scopes two repos, rejects missing upstream, and retries w
   assert.ok(afterStale.requests.some(request => request.base === 'origin/main' && request.target === 'HEAD'))
 
   await page.evaluate(path => window.mountChanges(path, 'browser-beta', 'branch-upstream'), beta)
-  await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node => node.textContent.includes('当前分支未配置上游，无法对比。')), { timeout: 7_000 })
+  await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node => node.textContent.includes('The current branch has no upstream configured; cannot compare.')), { timeout: 7_000 })
   const betaUi = await page.evaluate(() => ({
-    error: [...document.querySelectorAll('[role="alert"]')].map(node => node.textContent).find(text => text.includes('当前分支未配置上游')),
+    error: [...document.querySelectorAll('[role="alert"]')].map(node => node.textContent).find(text => text.includes('The current branch has no upstream configured')),
     diffRequests: window.__diffRequests.filter(request => request.path.endsWith('repo-beta')),
   }))
-  assert.equal(betaUi.error, '当前分支未配置上游，无法对比。')
+  assert.equal(betaUi.error, 'The current branch has no upstream configured; cannot compare.')
   assert.equal(betaUi.diffRequests.length, 0, 'no-upstream is explicit instead of a fabricated empty diff')
 
   const worktreeName = `retry-${Date.now().toString(36)}`
   await page.evaluate((path, branch) => window.mountWorktree(path, branch), beta, 'beta-main')
-  await page.focus('input[placeholder="例如 feature-login"]')
-  await page.type('input[placeholder="例如 feature-login"]', worktreeName)
+  await page.focus('input[placeholder="e.g. feature-login"]')
+  await page.type('input[placeholder="e.g. feature-login"]', worktreeName)
   await page.click('button[type="submit"]')
-  await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent.includes('已创建：') && document.querySelector('[role="alert"]')?.textContent.includes('Injected open failure'), { timeout: 10_000 })
+  await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent.includes('Created:') && document.querySelector('[role="alert"]')?.textContent.includes('Injected open failure'), { timeout: 10_000 })
   const failedOpen = await page.evaluate(() => ({
     status: document.querySelector('[role="status"]')?.textContent,
     error: document.querySelector('[role="alert"]')?.textContent,
@@ -461,13 +461,13 @@ test('real Cordis host scopes two repos, rejects missing upstream, and retries w
     createRequests: window.__createRequests,
     workspaceEvents: window.__workspaceEvents,
   }))
-  assert.equal(failedOpen.retry, '重试打开工作区')
+  assert.equal(failedOpen.retry, 'Retry opening workspace')
   assert.equal(failedOpen.createRequests, 1)
-  const createdPath = failedOpen.status.replace(/^已创建：/, '')
+  const createdPath = failedOpen.status.replace(/^Created: /, '')
   assert.equal(failedOpen.workspaceEvents[0].type, 'create')
   assert.equal(failedOpen.workspaceEvents[0].path, createdPath)
   assert.equal(failedOpen.workspaceEvents[1].type, 'open')
-  assert.match(failedOpen.error, /工作树已保留，可重试打开/)
+  assert.match(failedOpen.error, /the worktree was kept, you can retry opening it/)
   assert.ok(existsSync(createdPath), 'the actual Git worktree remains after open failure')
 
   await page.click('button[type="submit"]')

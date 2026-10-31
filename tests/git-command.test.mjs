@@ -120,7 +120,7 @@ test('for-each-ref branches carry upstream tracking and drop the remote HEAD ali
   assert.deepEqual(branches.map(branch => branch.name), ['main', 'gone', 'origin/main'])
   assert.equal(branches[0].current, true)
   assert.deepEqual([branches[0].ahead, branches[0].behind], [2, 1])
-  assert.equal(branches[1].upstream, 'origin/gone (已删除)')
+  assert.equal(branches[1].upstream, 'origin/gone (deleted)')
 })
 
 test('reflog records carry the action and survive the -z record terminator', () => {

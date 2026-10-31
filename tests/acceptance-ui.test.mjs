@@ -405,7 +405,7 @@ test('Acceptance 4: inline creation forms expose the draft-retention gap and nat
   const { page, errors } = await openFixture({ data: dataFor([path]), mounts: [workbenchMount(path, 'forms-session')] })
   t.after(() => page.close())
 
-  await clickText(page, '.dsh-git-view-actions', '创建分支')
+  await clickText(page, '.dsh-git-view-actions', 'Create branch')
   await page.waitForSelector('.dsh-git-panel-form #dsh-git-branch-name')
   check.equal(await page.evaluate(() => document.activeElement.id), 'dsh-git-branch-name', 'focus lands on the name input in the inline form')
   check.equal(await page.$eval('.dsh-git-panel-form', node => node.getAttribute('role')), null)
@@ -429,7 +429,7 @@ test('Acceptance 4: inline creation forms expose the draft-retention gap and nat
 
   await page.focus('#dsh-git-branch-base')
   await page.keyboard.press('Tab')
-  check.equal(await page.evaluate(() => document.activeElement.textContent.trim()), '取消', 'Tab follows the form controls in DOM order')
+  check.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'Cancel', 'Tab follows the form controls in DOM order')
   await page.keyboard.down('Shift')
   await page.keyboard.press('Tab')
   await page.keyboard.up('Shift')
@@ -439,7 +439,7 @@ test('Acceptance 4: inline creation forms expose the draft-retention gap and nat
   await page.keyboard.press('Tab')
   await page.keyboard.up('Shift')
   const backward = await page.evaluate(() => ({ id: document.activeElement?.id, label: document.activeElement?.getAttribute('aria-label'), inside: !!document.querySelector('.dsh-git-panel-form')?.contains(document.activeElement) }))
-  check.equal(backward.label, '关闭', 'Shift+Tab follows natural DOM order to the preceding close button')
+  check.equal(backward.label, 'Close', 'Shift+Tab follows natural DOM order to the preceding close button')
   check.equal(backward.inside, true)
   await page.$eval('.dsh-git-panel-form button[type="submit"]', node => node.focus())
   await page.keyboard.press('Tab')
@@ -449,18 +449,18 @@ test('Acceptance 4: inline creation forms expose the draft-retention gap and nat
   check.equal(await page.$eval('.dsh-git-panel-form', node => !!node), true, 'Escape is a no-op on the inline form')
   check.equal(await page.$eval('#dsh-git-branch-name', node => node.value), 'feature/typed-branch')
 
-  await clickText(page, '.dsh-git-view-pages', '变更')
+  await clickText(page, '.dsh-git-view-pages', 'Changes')
   check.equal(await page.$('.dsh-git-panel-form'), null)
-  await clickText(page, '.dsh-git-view-actions', '创建分支')
+  await clickText(page, '.dsh-git-view-actions', 'Create branch')
   await page.waitForSelector('#dsh-git-branch-name')
   check.equal(await page.$eval('#dsh-git-branch-name', node => node.value), '', 'the view remount currently resets the unsaved branch draft')
-  await clickText(page, '.dsh-git-panel-form', '取消')
-  check.equal(await page.$eval('.dsh-git-view-tab[aria-selected="true"]', node => node.textContent.trim()), '变更', 'cancel returns to the changes page')
+  await clickText(page, '.dsh-git-panel-form', 'Cancel')
+  check.equal(await page.$eval('.dsh-git-view-tab[aria-selected="true"]', node => node.textContent.trim()), 'Changes', 'cancel returns to the changes page')
 
-  await clickText(page, '.dsh-git-view-actions', '创建工作树')
-  await page.waitForSelector('.dsh-git-panel-form input[placeholder="例如 feature-login"]')
-  const worktreeInput = '.dsh-git-panel-form input[placeholder="例如 feature-login"]'
-  check.equal(await page.evaluate(() => document.activeElement.matches('.dsh-git-panel-form input[placeholder="例如 feature-login"]')), true, 'focus lands on the worktree name input')
+  await clickText(page, '.dsh-git-view-actions', 'Create worktree')
+  await page.waitForSelector('.dsh-git-panel-form input[placeholder="e.g. feature-login"]')
+  const worktreeInput = '.dsh-git-panel-form input[placeholder="e.g. feature-login"]'
+  check.equal(await page.evaluate(() => document.activeElement.matches('.dsh-git-panel-form input[placeholder="e.g. feature-login"]')), true, 'focus lands on the worktree name input')
   await page.focus(worktreeInput)
   await page.keyboard.type('feature/typed-worktree')
   await page.click('.dsh-git-workbench-path')
@@ -479,12 +479,12 @@ test('Acceptance 4: inline creation forms expose the draft-retention gap and nat
   await page.focus(worktreeInput)
   await page.keyboard.press('Escape')
   check.equal(await page.$eval(worktreeInput, node => node.value), 'feature/typed-worktree', 'Escape does not close or clear the inline worktree form')
-  await clickText(page, '.dsh-git-view-pages', '变更')
-  await clickText(page, '.dsh-git-view-actions', '创建工作树')
+  await clickText(page, '.dsh-git-view-pages', 'Changes')
+  await clickText(page, '.dsh-git-view-actions', 'Create worktree')
   await page.waitForSelector(worktreeInput)
   check.equal(await page.$eval(worktreeInput, node => node.value), '', 'the view remount currently resets the unsaved worktree draft')
-  await clickText(page, '.dsh-git-panel-form', '关闭')
-  check.equal(await page.$eval('.dsh-git-view-tab[aria-selected="true"]', node => node.textContent.trim()), '工作树', 'the worktree close control returns to the worktrees page')
+  await clickText(page, '.dsh-git-panel-form', 'Close')
+  check.equal(await page.$eval('.dsh-git-view-tab[aria-selected="true"]', node => node.textContent.trim()), 'Worktree', 'the worktree close control returns to the worktrees page')
   check.deepEqual(errors, [])
 })
 
@@ -497,23 +497,23 @@ test('Acceptance 6: locked delete is disabled and dirty removal refusal is surfa
   ]
   const data = dataFor([path], { [path]: {
     worktrees,
-    removeResults: { '/repo-worktrees/dirty-tree': { ok: false, error: '工作树含未提交改动，拒绝移除' } },
+    removeResults: { '/repo-worktrees/dirty-tree': { ok: false, error: 'Worktree has uncommitted changes, refusing removal' } },
   } })
   const { page } = await openFixture({ data, mounts: [workbenchMount(path, 'worktrees-session')] })
   t.after(() => page.close())
-  await clickText(page, '.dsh-git-view-pages', '工作树')
+  await clickText(page, '.dsh-git-view-pages', 'Worktree')
   await page.waitForFunction(() => document.querySelectorAll('.dsh-git-worktree-row').length === 2)
 
   const locked = await page.$eval('.dsh-git-worktree-row', row => ({
     text: row.textContent,
-    removeExists: !![...row.querySelectorAll('button')].find(button => button.textContent.includes('移除工作树')),
-    removeDisabled: [...row.querySelectorAll('button')].find(button => button.textContent.includes('移除工作树'))?.disabled ?? null,
-    removeTitle: [...row.querySelectorAll('button')].find(button => button.textContent.includes('移除工作树'))?.title,
+    removeExists: !![...row.querySelectorAll('button')].find(button => button.textContent.includes('Remove worktree')),
+    removeDisabled: [...row.querySelectorAll('button')].find(button => button.textContent.includes('Remove worktree'))?.disabled ?? null,
+    removeTitle: [...row.querySelectorAll('button')].find(button => button.textContent.includes('Remove worktree'))?.title,
   }))
-  check.match(locked.text, /已锁定/)
+  check.match(locked.text, /Locked/)
   check.equal(locked.removeExists, true)
   check.equal(locked.removeDisabled, true)
-  check.equal(locked.removeTitle, '已锁定的工作树需先解锁才能移除')
+  check.equal(locked.removeTitle, 'A locked worktree must be unlocked before it can be removed')
 
   const dirtyRemoveDisabled = await page.evaluate(() => {
     const row = [...document.querySelectorAll('.dsh-git-worktree-row')].find(node => node.querySelector('.dsh-git-worktree-path')?.textContent.trim() === '/repo-worktrees/dirty-tree')
@@ -527,17 +527,17 @@ test('Acceptance 6: locked delete is disabled and dirty removal refusal is surfa
     return true
   })
   check.equal(dirtyRowFound, true, 'the dirty row is identified by its exact worktree path')
-  await page.waitForSelector('[role="group"][aria-label="确认移除工作树"]')
-  check.equal(await page.$eval('[role="group"][aria-label="确认移除工作树"] input[type="checkbox"]', node => node.checked), false)
-  await clickText(page, '[role="group"][aria-label="确认移除工作树"]', '确认移除工作树')
-  await page.waitForFunction(() => document.querySelector('[role="alert"]')?.textContent.includes('工作树含未提交改动'))
+  await page.waitForSelector('[role="group"][aria-label="Confirm worktree removal"]')
+  check.equal(await page.$eval('[role="group"][aria-label="Confirm worktree removal"] input[type="checkbox"]', node => node.checked), false)
+  await clickText(page, '[role="group"][aria-label="Confirm worktree removal"]', 'Confirm worktree removal')
+  await page.waitForFunction(() => document.querySelector('[role="alert"]')?.textContent.includes('Worktree has uncommitted changes'))
   const calls = await page.evaluate(() => window.__gitData.apiCalls.filter(call => call.name === 'removeWorktree'))
   check.equal(calls.length, 1)
   check.equal(calls[0].args[0], path)
   check.equal(calls[0].args[1], '/repo-worktrees/dirty-tree')
   check.equal(calls[0].args[2], false, 'dirty removal is requested without force')
   check.equal(calls.some(call => call.args[2] === true), false)
-  check.equal(await page.$eval('[role="alert"]', node => node.textContent.includes('已删除工作树')), false, 'a refusal must not be presented as success')
+  check.equal(await page.$eval('[role="alert"]', node => node.textContent.includes('Worktree deleted')), false, 'a refusal must not be presented as success')
 })
 
 // Acceptance item 9: file history takes over the changes body in-place; close restores files and diff.
@@ -547,7 +547,7 @@ test('Acceptance 9: file history fills the changes body and preserves the pinned
   t.after(() => page.close())
   await page.waitForFunction(() => document.querySelector('.dsh-git-diff-lines')?.textContent.includes('HISTORY_PATCH'))
   await page.click('.dsh-git-file-menu summary')
-  await page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
+  await page.click('.dsh-git-file-menu-items button[title="View this file\'s history and line-by-line blame"]')
   await page.waitForFunction(() => document.querySelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-scroll-list button'))
   const layout = await page.evaluate(() => {
     const body = document.querySelector('.dsh-git-changes-body')
@@ -576,14 +576,14 @@ test('Acceptance 9: file history fills the changes body and preserves the pinned
   check.ok(layout.commit.top >= layout.body.bottom - 2, 'commit controls remain outside and below the history takeover')
   check.ok(layout.commit.bottom - layout.commit.top > 0)
 
-  await page.click('.dsh-git-panel-form button[aria-label="关闭"]')
+  await page.click('.dsh-git-panel-form button[aria-label="Close"]')
   await page.waitForFunction(() => document.querySelector('.dsh-git-file-row') && document.querySelector('.dsh-git-diff-lines')?.textContent.includes('HISTORY_PATCH'))
   check.ok(await page.$('.dsh-git-changes-body > .dsh-git-panel-form') === null, 'closing history restores the normal file/diff body')
   check.ok(await page.$('.dsh-git-commit-box') !== null, 'the commit box returns with the changes view')
 })
 
 // Acceptance item 12: the file-history list is replaced in place by the commit detail, and no detail
-// survives 返回, a tab switch, or closing the panel. The lazy-chunk failure branch cannot be triggered
+// survives Back, a tab switch, or closing the panel. The lazy-chunk failure branch cannot be triggered
 // here — esbuild inlines the dynamic import, so the chunk never rejects — and that branch stays
 // covered by tests/history-loading.test.mjs.
 test('Acceptance 12: commit detail replaces the file history in place and leaves no residue', { skip: skipReason, timeout: 60000 }, async t => {
@@ -616,13 +616,13 @@ test('Acceptance 12: commit detail replaces the file history in place and leaves
     return {
       rows: [...(form?.querySelectorAll('.dsh-git-scroll-list .dsh-git-reflog-row') || [])].map(row => row.textContent.trim()),
       text: (form?.textContent || '').replace(/\s+/g, ' '),
-      back: [...(form?.querySelectorAll('button') || [])].filter(button => button.textContent.trim() === '返回').length,
+      back: [...(form?.querySelectorAll('button') || [])].filter(button => button.textContent.trim() === 'Back').length,
       hasMessage: !!form?.querySelector('.dsh-git-detail-message'),
     }
   }, panel)
   const openHistory = async () => {
     await page.click('.dsh-git-file-menu summary')
-    await page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
+    await page.click('.dsh-git-file-menu-items button[title="View this file\'s history and line-by-line blame"]')
     await waitForList()
   }
 
@@ -631,7 +631,7 @@ test('Acceptance 12: commit detail replaces the file history in place and leaves
   check.equal(listed.rows.length, 2, 'the file history lists every entry')
   check.match(listed.rows.join(' | '), /FIRST_HISTORY_SUBJECT/)
   check.match(listed.rows.join(' | '), /SECOND_HISTORY_SUBJECT/)
-  check.equal(listed.back, 0, 'the plain list offers no 返回 button')
+  check.equal(listed.back, 0, 'the plain list offers no Back button')
   check.equal(listed.hasMessage, false, 'no commit detail is rendered before drilling in')
 
   await page.click(`.dsh-git-scroll-list .dsh-git-reflog-row[title="${second.hash}"]`)
@@ -642,32 +642,32 @@ test('Acceptance 12: commit detail replaces the file history in place and leaves
   check.match(drilled.text, /DRILLED_DETAIL_SUBJECT/)
   check.match(drilled.text, /DRILLED_DETAIL_BODY/)
   check.doesNotMatch(drilled.text, /FIRST_HISTORY_SUBJECT|SECOND_HISTORY_SUBJECT/)
-  check.equal(drilled.back, 1, 'the drilled detail offers 返回')
+  check.equal(drilled.back, 1, 'the drilled detail offers Back')
   const fetched = await page.evaluate(hash => window.__gitData.apiCalls.filter(call => call.name === 'getCommitDetail' && call.args[1] === hash).length, second.hash)
   check.ok(fetched >= 1, 'the detail is fetched for the clicked commit hash')
 
-  await clickText(page, panel, '返回')
+  await clickText(page, panel, 'Back')
   await waitForList()
   const restored = await state()
-  check.equal(restored.rows.length, 2, '返回 restores the same file history')
-  check.equal(restored.hasMessage, false, '返回 leaves no detail behind')
+  check.equal(restored.rows.length, 2, 'Back restores the same file history')
+  check.equal(restored.hasMessage, false, 'Back leaves no detail behind')
 
   await page.click(`.dsh-git-scroll-list .dsh-git-reflog-row[title="${second.hash}"]`)
   await waitForDetail()
-  await clickText(page, panel, '责任')
+  await clickText(page, panel, 'Blame')
   await page.waitForFunction(selector => !document.querySelector(selector)?.querySelector('.dsh-git-detail-message'), {}, panel)
   const blameTab = await state()
-  check.equal(blameTab.hasMessage, false, 'switching to the 责任 tab drops the drilled detail')
-  check.equal(blameTab.back, 0, 'no 返回 button survives the tab switch')
+  check.equal(blameTab.hasMessage, false, 'switching to the Blame tab drops the drilled detail')
+  check.equal(blameTab.back, 0, 'no Back button survives the tab switch')
   check.doesNotMatch(blameTab.text, /DRILLED_DETAIL_SUBJECT/)
 
-  await clickText(page, panel, '历史')
+  await clickText(page, panel, 'History')
   await waitForList()
   const backToHistory = await state()
-  check.equal(backToHistory.rows.length, 2, 'returning to 历史 shows the same file history, not a stale detail')
+  check.equal(backToHistory.rows.length, 2, 'returning to History shows the same file history, not a stale detail')
   check.equal(backToHistory.hasMessage, false)
 
-  await page.click(`${panel} button[aria-label="关闭"]`)
+  await page.click(`${panel} button[aria-label="Close"]`)
   await page.waitForFunction(() => document.querySelector('.dsh-git-file-row') && document.querySelector('.dsh-git-diff-lines')?.textContent.includes('DRILL_PATCH'))
   check.ok(await page.$(`${panel} .dsh-git-detail-message`) === null, 'closing the panel leaves no commit detail')
   check.deepEqual(errors, [])
@@ -697,12 +697,12 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
       labels: entries.map(entry => entry.textContent.trim()),
       titles: entries.map(entry => entry.getAttribute('title') || ''),
       tag: document.querySelector('.dsh-git-editor-option .dsh-git-editor-tag')?.textContent || '',
-      stuckLoading: document.querySelector('.dsh-git-editor-menu')?.textContent.includes('正在检测已安装的编辑器…') || false,
+      stuckLoading: document.querySelector('.dsh-git-editor-menu')?.textContent.includes('Detecting installed editors…') || false,
       icons: [...document.querySelectorAll('img.dsh-git-editor-mark-image')].map(image => ({
         src: image.getAttribute('src'), width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height,
       })),
       noIconMark: [...entries].find(entry => entry.textContent.includes('IntelliJ IDEA'))?.querySelector('.dsh-git-editor-mark, svg') !== null,
-      marks: entries.filter(entry => !entry.textContent.includes('系统默认应用') && !entry.textContent.includes('显示文件位置')).map(entry => {
+      marks: entries.filter(entry => !entry.textContent.includes('System default application') && !entry.textContent.includes('Show file location')).map(entry => {
         const mark = entry.querySelector(':scope > .dsh-git-editor-mark, :scope > svg')
         const label = [...entry.querySelectorAll(':scope > span')].find(node => !node.classList.contains('dsh-git-editor-mark'))
         return { width: mark?.getBoundingClientRect().width, height: mark?.getBoundingClientRect().height, label: label?.textContent.trim(), labelClient: label?.clientWidth, labelScroll: label?.scrollWidth }
@@ -711,15 +711,15 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
     }
   })
   check.equal(menu.labels.length, 5)
-  check.equal(menu.tag, '（默认）', 'the OS association leads the list and carries the Windows 11 default tag')
+  check.equal(menu.tag, '(default)', 'the OS association leads the list and carries the Windows 11 default tag')
   check.ok(menu.titles.includes(pathShim), 'the PATH-first code.cmd command returned by the host stays reachable as the row tooltip')
   check.ok(menu.labels.some(label => label.includes('Visual Studio Code')))
   check.equal(menu.labels.filter(label => label.includes('Visual Studio Code')).length, 1, 'the host-provided PATH-first shim result is rendered once')
   check.equal(menu.stuckLoading, false, 'the probe result is not stuck in its loading state')
   check.ok(menu.labels.some(label => label.includes('WebStorm')))
   check.ok(menu.labels.some(label => label.includes('IntelliJ IDEA')))
-  check.ok(menu.labels.some(label => label === '系统默认应用（默认）'))
-  check.ok(menu.labels.some(label => label === '显示文件位置'), 'the footer row reveals the file instead of opening it')
+  check.ok(menu.labels.some(label => label === 'System default application(default)'))
+  check.ok(menu.labels.some(label => label === 'Show file location'), 'the footer row reveals the file instead of opening it')
   check.equal(menu.icons.length, 2)
   check.equal(menu.icons[0].src, iconA)
   check.equal(menu.icons[1].src, iconB)
@@ -742,17 +742,17 @@ test('Acceptance 10 and 14: editor menu keeps icons square and probes once after
   await page.click('.dsh-git-open-editor')
   await page.waitForSelector('.dsh-git-editor-menu')
   check.equal(await page.evaluate(() => window.__gitData.editorProbeCalls), 1, 'reopening after success reuses the mounted component cache')
-  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true)
+  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('System default application')), true)
   await page.keyboard.press('Escape')
   await page.waitForFunction(() => !document.querySelector('.dsh-git-editor-menu'))
 
   await page.click('.dsh-git-file-menu summary')
-  await page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
+  await page.click('.dsh-git-file-menu-items button[title="View this file\'s history and line-by-line blame"]')
   await page.waitForSelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')
   await page.click('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')
   await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.querySelectorAll('.dsh-git-editor-option').length === 5)
   check.equal(await page.evaluate(() => window.__gitData.editorProbeCalls), 2, 'the history-toolbar control is a separate mounted component and probes once')
-  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true)
+  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('System default application')), true)
   await page.keyboard.press('Escape')
   await page.waitForFunction(() => !document.querySelector('.dsh-git-editor-menu'))
   check.equal(await page.evaluate(() => document.activeElement === document.querySelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')), true, 'Escape returns focus to the history-toolbar trigger')
@@ -771,21 +771,21 @@ test('Acceptance 10, 14, and 15: empty fallback covers both menus and failures r
   const page = emptyFixture.page
   await page.waitForSelector('.dsh-git-open-editor')
   await page.click('.dsh-git-open-editor')
-  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('系统默认应用'))
-  check.match(await page.$eval('.dsh-git-editor-menu', node => node.textContent), /没有检测到编辑器命令行/)
-  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true, 'empty probe retains the OS-association option')
+  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('System default application'))
+  check.match(await page.$eval('.dsh-git-editor-menu', node => node.textContent), /No editor command line detected/)
+  check.equal(await page.$eval('.dsh-git-editor-menu', node => node.textContent.includes('System default application')), true, 'empty probe retains the OS-association option')
   check.equal(await page.evaluate(() => window.__gitData.editorProbeCalls), 1)
   await page.keyboard.press('Escape')
   await page.waitForFunction(() => !document.querySelector('.dsh-git-editor-menu'))
   check.equal(await page.evaluate(() => document.activeElement === document.querySelector('.dsh-git-open-editor')), true, 'diff-header Escape leaves focus on its trigger')
 
   await page.click('.dsh-git-file-menu summary')
-  await page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
+  await page.click('.dsh-git-file-menu-items button[title="View this file\'s history and line-by-line blame"]')
   await page.waitForSelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor')
   const historyTrigger = '.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-open-editor'
   await page.click(historyTrigger)
-  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('系统默认应用'))
-  check.match(await page.$eval('.dsh-git-editor-menu', node => node.textContent), /没有检测到编辑器命令行/)
+  await page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('System default application'))
+  check.match(await page.$eval('.dsh-git-editor-menu', node => node.textContent), /No editor command line detected/)
   check.equal(await page.evaluate(() => window.__gitData.editorProbeCalls), 2, 'the history-toolbar component probes once independently')
   await page.keyboard.press('Escape')
   await page.waitForFunction(() => !document.querySelector('.dsh-git-editor-menu'))
@@ -801,7 +801,7 @@ test('Acceptance 10, 14, and 15: empty fallback covers both menus and failures r
   await errorPage.click('.dsh-git-open-editor')
   await errorPage.waitForSelector('.dsh-git-editor-menu [role="alert"]')
   check.match(await errorPage.$eval('.dsh-git-editor-menu [role="alert"]', node => node.textContent), /editor probe unavailable/)
-  check.equal(await errorPage.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true)
+  check.equal(await errorPage.$eval('.dsh-git-editor-menu', node => node.textContent.includes('System default application')), true)
   check.equal(await errorPage.evaluate(() => window.__gitData.editorProbeCalls), 1)
   await errorPage.keyboard.press('Escape')
   await errorPage.waitForFunction(() => !document.querySelector('.dsh-git-editor-menu'))
@@ -809,7 +809,7 @@ test('Acceptance 10, 14, and 15: empty fallback covers both menus and failures r
   await errorPage.click('.dsh-git-open-editor')
   await errorPage.waitForSelector('.dsh-git-editor-menu [role="alert"]')
   check.equal(await errorPage.evaluate(() => window.__gitData.editorProbeCalls), 2, 'failed probes retry on a later opening')
-  check.equal(await errorPage.$eval('.dsh-git-editor-menu', node => node.textContent.includes('系统默认应用')), true)
+  check.equal(await errorPage.$eval('.dsh-git-editor-menu', node => node.textContent.includes('System default application')), true)
 })
 
 // Acceptance item 8: rendered chip and popover badges omit zero counts and show real divergence.
@@ -829,7 +829,7 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
   }))
   check.equal(zeroChip.ahead, 0)
   check.equal(zeroChip.behind, 0)
-  check.equal(zeroChip.badges.some(value => value.startsWith('储藏')), false)
+  check.equal(zeroChip.badges.some(value => value.startsWith('Stashes')), false)
   await page.click('.dsh-git-chip')
   await page.waitForSelector('.dsh-git-popover')
   const zeroPopover = await page.$eval('.dsh-git-popover', node => ({
@@ -837,10 +837,10 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
     diverged: !!node.querySelector('.dsh-git-diverged'),
     ahead: node.querySelectorAll('.dsh-git-ahead').length,
     behind: node.querySelectorAll('.dsh-git-behind').length,
-    stash: [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim() === '储藏 0'),
+    stash: [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim() === 'Stashes 0'),
   }))
-  check.doesNotMatch(zeroPopover.text, /领先|落后/)
-  check.equal(zeroPopover.diverged, false, '与上游一致时整行都不渲染')
+  check.doesNotMatch(zeroPopover.text, /Ahead|Behind/)
+  check.equal(zeroPopover.diverged, false, 'the whole row is hidden when level with upstream')
   check.equal(zeroPopover.ahead, 0)
   check.equal(zeroPopover.behind, 0)
   check.equal(zeroPopover.stash, false)
@@ -857,33 +857,33 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
     ahead: node.querySelector('.dsh-git-ahead')?.textContent,
     behind: node.querySelector('.dsh-git-behind')?.textContent,
     arrowIcons: [...node.querySelectorAll('.dsh-git-ahead svg, .dsh-git-behind svg')].map(icon => icon.getAttribute('viewBox')),
-    stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === '储藏 3')?.textContent.trim(),
+    stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === 'Stashes 3')?.textContent.trim(),
   }))
   check.equal(divergedChip.branch, 'main')
   check.equal(divergedChip.ahead, '2')
   check.equal(divergedChip.behind, '1')
-  // 计数必须画成图标箭头：正文里的 ↑/↓ 字形紧跟分支名会被读成「main 13」。
+  // Counts must be drawn as icon arrows: a text ↑/↓ glyph next to the branch name reads as "main 13".
   check.deepEqual(divergedChip.arrowIcons, ['0 0 24 24', '0 0 24 24'])
   check.doesNotMatch(`${divergedChip.branch}${divergedChip.ahead}${divergedChip.behind}`, /[↑↓]/, 'the chip never glues a text arrow glyph onto the branch name')
-  check.equal(divergedChip.stash, '储藏 3')
+  check.equal(divergedChip.stash, 'Stashes 3')
   await page.click('.dsh-git-chip')
   await page.waitForSelector('.dsh-git-popover')
   const divergedPopover = await page.$eval('.dsh-git-popover', node => ({
     text: node.textContent,
-    stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === '储藏 3')?.textContent.trim(),
+    stash: [...node.querySelectorAll('.dsh-git-badge')].find(item => item.textContent.trim() === 'Stashes 3')?.textContent.trim(),
     ahead: node.querySelector('.dsh-git-diverged .dsh-git-ahead')?.textContent.trim(),
     behind: node.querySelector('.dsh-git-diverged .dsh-git-behind')?.textContent.trim(),
     aheadIcon: !!node.querySelector('.dsh-git-diverged .dsh-git-ahead svg'),
     behindIcon: !!node.querySelector('.dsh-git-diverged .dsh-git-behind svg'),
   }))
-  check.equal(divergedPopover.ahead, '领先 2 个提交')
-  check.equal(divergedPopover.behind, '落后 1 个提交')
-  check.equal(divergedPopover.aheadIcon, true, '领先那一侧画的是图标箭头')
-  check.equal(divergedPopover.behindIcon, true, '落后那一侧画的是图标箭头')
-  check.doesNotMatch(divergedPopover.text, /[↑↓]/, '这一行也不再用正文 ↑/↓ 字形')
-  check.equal(divergedPopover.stash, '储藏 3')
+  check.equal(divergedPopover.ahead, 'Ahead 2 commits')
+  check.equal(divergedPopover.behind, 'Behind 1 commits')
+  check.equal(divergedPopover.aheadIcon, true, 'the leading side draws an icon arrow')
+  check.equal(divergedPopover.behindIcon, true, 'the trailing side draws an icon arrow')
+  check.doesNotMatch(divergedPopover.text, /[↑↓]/, 'this row does not use text ↑/↓ glyphs either')
+  check.equal(divergedPopover.stash, 'Stashes 3')
 
-  // The reported defect: a branch that only leads its upstream still printed "落后 0 个提交".
+  // The reported defect: a branch that only leads its upstream still printed "Behind 0 commits".
   await page.click('.dsh-git-popover-backdrop')
   await page.evaluate(() => {
     const repo = window.__gitData.repos['/repo-branch-chip']
@@ -906,9 +906,9 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
     ahead: node.querySelector('.dsh-git-diverged .dsh-git-ahead')?.textContent.trim(),
     pills: node.querySelectorAll('.dsh-git-diverged > span').length,
   }))
-  check.equal(aheadOnlyPopover.ahead, '领先 3 个提交')
-  check.equal(aheadOnlyPopover.pills, 1, '只有领先那一侧，不打印空的落后')
-  check.doesNotMatch(aheadOnlyPopover.text, /落后/)
+  check.equal(aheadOnlyPopover.ahead, 'Ahead 3 commits')
+  check.equal(aheadOnlyPopover.pills, 1, 'only the leading side is printed, no empty trailing pill')
+  check.doesNotMatch(aheadOnlyPopover.text, /Behind/)
 
   await page.click('.dsh-git-popover-backdrop')
   await page.evaluate(() => {
@@ -917,12 +917,12 @@ test('Acceptance 8: branch chip and popover render only nonzero divergence and s
   })
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await page.waitForFunction(() => !document.querySelector('.dsh-git-ahead') && !document.querySelector('.dsh-git-behind'))
-  check.equal(await page.$eval('.dsh-git-chip', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('储藏'))), false)
+  check.equal(await page.$eval('.dsh-git-chip', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('Stashes'))), false)
   await page.click('.dsh-git-chip')
   await page.waitForSelector('.dsh-git-popover')
-  check.equal(await page.$eval('.dsh-git-popover', node => !!node.querySelector('.dsh-git-diverged')), false, '回到与上游一致时这一行整行消失')
-  check.doesNotMatch(await page.$eval('.dsh-git-popover', node => node.textContent), /领先|落后/)
-  check.equal(await page.$eval('.dsh-git-popover', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('储藏'))), false)
+  check.equal(await page.$eval('.dsh-git-popover', node => !!node.querySelector('.dsh-git-diverged')), false, 'the whole row disappears when level with upstream')
+  check.doesNotMatch(await page.$eval('.dsh-git-popover', node => node.textContent), /Ahead|Behind/)
+  check.equal(await page.$eval('.dsh-git-popover', node => [...node.querySelectorAll('.dsh-git-badge')].some(item => item.textContent.trim().startsWith('Stashes'))), false)
   check.deepEqual(errors, [])
 })
 
@@ -941,10 +941,10 @@ async function readThemeControlStyles(page) {
   await settleVisuals(page)
   const controls = await page.evaluate(() => {
     const nodes = [
-      ['更多操作', document.querySelector('.dsh-git-file-menu summary')],
-      ['在编辑器中打开', document.querySelector('.dsh-git-open-editor')],
-      ['工作区 → HEAD', document.querySelector('.dsh-git-compare-trigger')],
-      ['撤销提交', [...document.querySelectorAll('.dsh-git-commit-box button')].find(button => button.textContent.includes('撤销提交'))],
+      ['More actions', document.querySelector('.dsh-git-file-menu summary')],
+      ['Open in editor', document.querySelector('.dsh-git-open-editor')],
+      ['Workspace → HEAD', document.querySelector('.dsh-git-compare-trigger')],
+      ['Revert commit', [...document.querySelectorAll('.dsh-git-commit-box button')].find(button => button.textContent.includes('Revert commit'))],
     ]
     return nodes.map(([label, node]) => {
       if (!node) return { label, missing: true }
@@ -1025,7 +1025,7 @@ test('Acceptance 7 and 14: capture light, dark, narrow-history, editor, and work
     check.equal(control.bgLayer1, '#f5f5f5')
     check.equal(control.bgBase, '#fff')
     check.equal(control.labelPrimary, '#202020')
-    check.equal(control.backgroundColor, control.label === '工作区 → HEAD' ? 'rgb(255, 255, 255)' : 'rgb(245, 245, 245)')
+    check.equal(control.backgroundColor, control.label === 'Workspace → HEAD' ? 'rgb(255, 255, 255)' : 'rgb(245, 245, 245)')
   }
   await captureScreenshot(page, paths.light)
 
@@ -1036,7 +1036,7 @@ test('Acceptance 7 and 14: capture light, dark, narrow-history, editor, and work
     check.equal(control.bgLayer1, '#232323')
     check.equal(control.bgBase, '#181818')
     check.equal(control.labelPrimary, '#ededed')
-    check.equal(control.backgroundColor, control.label === '工作区 → HEAD' ? 'rgb(24, 24, 24)' : 'rgb(35, 35, 35)')
+    check.equal(control.backgroundColor, control.label === 'Workspace → HEAD' ? 'rgb(24, 24, 24)' : 'rgb(35, 35, 35)')
   }
   // Item 7: the item remains readable in both modes after the background transitions settle.
   await captureScreenshot(page, paths.dark)
@@ -1047,7 +1047,7 @@ test('Acceptance 7 and 14: capture light, dark, narrow-history, editor, and work
   t.after(() => historyFixture.page.close())
   await historyFixture.page.waitForFunction(() => document.querySelector('.dsh-git-diff-lines')?.textContent.includes('HISTORY_SCREENSHOT_PATCH'))
   await historyFixture.page.click('.dsh-git-file-menu summary')
-  await historyFixture.page.click('.dsh-git-file-menu-items button[title="查看这个文件的历史与逐行责任"]')
+  await historyFixture.page.click('.dsh-git-file-menu-items button[title="View this file\'s history and line-by-line blame"]')
   await historyFixture.page.waitForSelector('.dsh-git-changes-body > .dsh-git-panel-form .dsh-git-scroll-list')
   await captureScreenshot(historyFixture.page, paths.history)
 
@@ -1061,7 +1061,7 @@ test('Acceptance 7 and 14: capture light, dark, narrow-history, editor, and work
   t.after(() => editorFixture.page.close())
   await editorFixture.page.waitForSelector('.dsh-git-open-editor')
   await editorFixture.page.click('.dsh-git-open-editor')
-  await editorFixture.page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('系统默认应用'))
+  await editorFixture.page.waitForFunction(() => document.querySelector('.dsh-git-editor-menu')?.textContent.includes('System default application'))
   const editorBox = await editorFixture.page.$eval('.dsh-git-editor-menu', node => {
     const rect = node.getBoundingClientRect()
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
@@ -1080,7 +1080,7 @@ test('Acceptance 7 and 14: capture light, dark, narrow-history, editor, and work
   ] } })
   const worktreeFixture = await openFixture({ data: worktreeData, mounts: [workbenchMount(worktreePath, 'worktree-shot-session')] })
   t.after(() => worktreeFixture.page.close())
-  await clickText(worktreeFixture.page, '.dsh-git-view-pages', '工作树')
+  await clickText(worktreeFixture.page, '.dsh-git-view-pages', 'Worktree')
   await worktreeFixture.page.waitForFunction(() => document.querySelectorAll('.dsh-git-worktree-row').length === 2)
   await captureScreenshot(worktreeFixture.page, paths.worktrees)
 

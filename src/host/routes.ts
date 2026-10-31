@@ -120,9 +120,9 @@ function booleanField(payload: Record<string, any>, key: string): boolean | unde
 function nativePathOpener(ctx: any): (absolutePath: string) => Promise<void> {
   return async (absolutePath: string) => {
     const controller = ctx?.get?.('sessionController')
-    if (!controller?.openWorkspacePath) throw new Error('DSH 未提供系统打开能力')
+    if (!controller?.openWorkspacePath) throw new Error('DSH did not provide a system open capability')
     if (typeof controller.canOpenWorkspacePath === 'function' && !(await controller.canOpenWorkspacePath())) {
-      throw new Error('当前环境无法打开本地文件')
+      throw new Error('The current environment cannot open local files')
     }
     await controller.openWorkspacePath({ path: absolutePath })
   }

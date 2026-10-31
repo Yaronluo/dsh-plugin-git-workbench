@@ -84,7 +84,7 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
       const response = await action()
       setNotice(response.ok
         ? { ok: true, text: successText }
-        : { ok: false, text: response.error ?? '操作失败' })
+        : { ok: false, text: response.error ?? 'Operation failed' })
     } catch (error) {
       setNotice({ ok: false, text: errorMessage(error) })
     } finally {
@@ -97,7 +97,7 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
     setNotice(null)
     try {
       await navigator.clipboard.writeText(file)
-      setNotice({ ok: true, text: '已复制文件路径' })
+      setNotice({ ok: true, text: 'File path copied' })
     } catch (error) {
       setNotice({ ok: false, text: errorMessage(error) })
     } finally {
@@ -110,7 +110,7 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
     setNotice(null)
     try {
       await navigator.clipboard.writeText(line.hash)
-      setNotice({ ok: true, text: `已复制提交哈希：${line.shortHash}` })
+      setNotice({ ok: true, text: `Copied commit hash: ${line.shortHash}` })
     } catch (error) {
       setNotice({ ok: false, text: errorMessage(error) })
     }
@@ -120,25 +120,25 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
   const blame = currentResult?.blame ?? null
   const requestError = currentResult?.error ?? null
 
-  return <DialogShell title={'文件 · ' + file} onClose={close} style={{ width: 820, maxWidth: '94vw', maxHeight: '90vh' }}>
+  return <DialogShell title={'File · ' + file} onClose={close} style={{ width: 820, maxWidth: '94vw', maxHeight: '90vh' }}>
     <div className="dsh-git-modal-header">
-      <span><IconFile size={16} />文件 · {file}</span>
-      <button type="button" aria-label="关闭" className="dsh-git-icon-btn" onClick={close}><IconClose size={16} /></button>
+      <span><IconFile size={16} />files · {file}</span>
+      <button type="button" aria-label="Close" className="dsh-git-icon-btn" onClick={close}><IconClose size={16} /></button>
     </div>
     <div className="dsh-git-modal-body" style={{ padding: 0, gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
-      <div className="dsh-git-tab-strip" role="tablist" aria-label="文件检查视图" style={{ margin: '10px 12px 0' }}>
-        <button type="button" role="tab" aria-selected={tab === 'history'} className={`dsh-git-tab ${tab === 'history' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('history'); setDrilled(null) }}>历史</button>
-        <button type="button" role="tab" aria-selected={tab === 'blame'} className={`dsh-git-tab ${tab === 'blame' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('blame'); setDrilled(null) }}>责任</button>
+      <div className="dsh-git-tab-strip" role="tablist" aria-label="File inspection view" style={{ margin: '10px 12px 0' }}>
+        <button type="button" role="tab" aria-selected={tab === 'history'} className={`dsh-git-tab ${tab === 'history' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('history'); setDrilled(null) }}>History</button>
+        <button type="button" role="tab" aria-selected={tab === 'blame'} className={`dsh-git-tab ${tab === 'blame' ? 'dsh-git-tab-active' : ''}`} onClick={() => { setNotice(null); setTab('blame'); setDrilled(null) }}>Blame</button>
       </div>
 
       {tab === 'history' ? <>
         <div className="dsh-git-panel-toolbar">
-          <span className="dsh-git-section-head">提交历史 <span className="dsh-git-badge">{history?.length ?? 0}</span></span>
+          <span className="dsh-git-section-head">Commit history <span className="dsh-git-badge">{history?.length ?? 0}</span></span>
           <span className="dsh-git-spacer" />
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void copyPath() }}><IconCopy size={14} />复制路径</button>
+          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void copyPath() }}><IconCopy size={14} />Copy path</button>
           <OpenInEditorMenu repo={path} file={file} onNotice={setNotice} />
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void runApiAction(() => gitApi.reveal(path, file), '已在文件管理器中打开') }}><IconFolderTree size={14} />打开文件管理器</button>
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" aria-label="刷新文件历史" title="刷新" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} className={loading ? 'dsh-git-spin' : ''} />刷新</button>
+          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={actionBusy} onClick={() => { void runApiAction(() => gitApi.reveal(path, file), 'Opened in the file manager') }}><IconFolderTree size={14} />Open file manager</button>
+          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" aria-label="Refresh file history" title="Refresh" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} className={loading ? 'dsh-git-spin' : ''} />Refresh</button>
         </div>
         {notice && <div className={`dsh-git-changes-notice ${notice.ok ? '' : 'dsh-git-error'}`} role={notice.ok ? 'status' : 'alert'}>{notice.text}</div>}
         {commitRef ? <SelectedCommitDetails path={path} commitRef={commitRef}
@@ -146,9 +146,9 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
           onBack={() => setDrilled(null)}
           onRetry={() => setDetailAttempt(value => value + 1)} />
           : <div className="dsh-git-scroll-list">
-            {loading ? <div className="dsh-git-panel-message" role="status">正在读取文件历史…</div>
+            {loading ? <div className="dsh-git-panel-message" role="status">Reading file history…</div>
               : requestError ? <div className="dsh-git-empty-state"><div className="dsh-git-error" role="alert">{requestError}</div></div>
-                : !history?.length ? <div className="dsh-git-empty-state">暂无文件历史</div>
+                : !history?.length ? <div className="dsh-git-empty-state">No file history</div>
                   : history.map(entry => <button type="button" key={entry.hash} className="dsh-git-reflog-row" title={entry.hash} onClick={() => openCommit(entry.hash)}>
                     <code>{entry.shortHash}</code>
                     <span>{entry.subject}</span>
@@ -160,19 +160,19 @@ export function FileInspectDialog({ path, file, onClose, onOpenCommit }: {
         <div className="dsh-git-panel-toolbar">
           <span className="dsh-git-mono" title={file}>{file}</span>
           <span className="dsh-git-spacer" />
-          {blame && <span className="dsh-git-muted">共 {blame.totalLines} 行</span>}
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" aria-label="刷新责任信息" title="刷新" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} className={loading ? 'dsh-git-spin' : ''} />刷新</button>
+          {blame && <span className="dsh-git-muted">Total {blame.totalLines} lines</span>}
+          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" aria-label="Refresh blame info" title="Refresh" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={14} className={loading ? 'dsh-git-spin' : ''} />Refresh</button>
         </div>
         {notice && <div className={`dsh-git-changes-notice ${notice.ok ? '' : 'dsh-git-error'}`} role={notice.ok ? 'status' : 'alert'}>{notice.text}</div>}
-        {blame?.truncated && <div className="dsh-git-muted" role="status" style={{ padding: '6px 12px' }}>只显示了前 5000 行，文件共 {blame.totalLines} 行</div>}
+        {blame?.truncated && <div className="dsh-git-muted" role="status" style={{ padding: '6px 12px' }}>Showing only the first 5000 lines of {blame.totalLines} lines</div>}
         <div className="dsh-git-scroll-list">
-          {loading ? <div className="dsh-git-panel-message" role="status">正在读取责任信息…</div>
+          {loading ? <div className="dsh-git-panel-message" role="status">Reading blame…</div>
             : requestError ? <div className="dsh-git-empty-state"><div className="dsh-git-error" role="alert">{requestError}</div></div>
-              : !blame?.lines.length ? <div className="dsh-git-empty-state">暂无责任信息</div>
-                : groupBlameLines(blame.lines).map(({ line, continuation }) => <button type="button" key={`${line.lineNumber}-${line.hash}`} className="dsh-git-blame-row" title={line.uncommitted ? '未提交' : line.hash} onClick={() => { void copyBlameHash(line) }} style={{ width: '100%', border: 0, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}>
+              : !blame?.lines.length ? <div className="dsh-git-empty-state">No blame information</div>
+                : groupBlameLines(blame.lines).map(({ line, continuation }) => <button type="button" key={`${line.lineNumber}-${line.hash}`} className="dsh-git-blame-row" title={line.uncommitted ? 'Uncommitted' : line.hash} onClick={() => { void copyBlameHash(line) }} style={{ width: '100%', border: 0, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}>
                   <span className={`dsh-git-blame-meta ${continuation ? 'dsh-git-same-commit' : ''}`}>
                     <code>{continuation || line.uncommitted ? '' : line.shortHash}</code>
-                    <span>{continuation ? '' : line.uncommitted ? '未提交' : line.author}</span>
+                    <span>{continuation ? '' : line.uncommitted ? 'Uncommitted' : line.author}</span>
                     <time>{continuation || line.uncommitted ? '' : line.date}</time>
                   </span>
                   <span className="dsh-git-blame-num">{line.lineNumber}</span>

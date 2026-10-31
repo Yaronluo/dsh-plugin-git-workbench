@@ -21,18 +21,18 @@ import type { WorkbenchUiState } from './workbench-state.js'
 
 /** 仓库状态与文件差异是两个请求，对用户却是一次等待，因此共用一个加载画面。 */
 function ChangesLoading() {
-  return <GitLoadingState title="正在加载仓库" hint="分支和文件变更即将显示在这里" />
+  return <GitLoadingState title="Loading repository" hint="Branches and file changes will appear here shortly" />
 }
 
 /** 进行中的 Git 操作能提供哪些收尾动作；二分查找与应用补丁没有可跳过的步骤。 */
 const OPERATION_LABELS: Record<string, string> = {
-  merge: '合并进行中',
-  rebase: '变基进行中',
-  'cherry-pick': '拣选提交进行中',
-  revert: '还原提交进行中',
-  am: '应用邮件补丁进行中',
-  bisect: '二分查找进行中',
-  apply: '应用补丁进行中',
+  merge: 'Merge in progress',
+  rebase: 'Rebase in progress',
+  'cherry-pick': 'Cherry-pick in progress',
+  revert: 'Revert in progress',
+  am: 'Applying mail patch in progress',
+  bisect: 'Bisect in progress',
+  apply: 'Patch application in progress',
 }
 
 const OPERATION_STEPS: Record<string, Array<'continue' | 'abort' | 'skip'>> = {
@@ -43,14 +43,14 @@ const OPERATION_STEPS: Record<string, Array<'continue' | 'abort' | 'skip'>> = {
   am: ['continue', 'skip', 'abort'],
 }
 
-const STEP_LABELS: Record<string, string> = { continue: '继续', skip: '跳过这一步', abort: '中止操作' }
+const STEP_LABELS: Record<string, string> = { continue: 'Continue', skip: 'Skip this step', abort: 'Abort operation' }
 
 type CompareScope = 'all' | 'unstaged' | 'staged'
 
 const SCOPES: Array<{ key: CompareScope; label: string; hint: string }> = [
-  { key: 'all', label: '全部', hint: '工作区与 HEAD 的全部差异' },
-  { key: 'unstaged', label: '未暂存', hint: '暂存区与工作区之间（可逐段暂存）' },
-  { key: 'staged', label: '已暂存', hint: 'HEAD 与暂存区之间（可逐段取消暂存）' },
+  { key: 'all', label: 'All', hint: 'All differences between the working tree and HEAD' },
+  { key: 'unstaged', label: 'Unstaged', hint: 'Between the index and the working tree (stage hunk by hunk is available)' },
+  { key: 'staged', label: 'Staged', hint: 'Between HEAD and the index (unstage hunk by hunk is available)' },
 ]
 
 const CONTEXT_CHOICES = [0, 3, 10]
@@ -208,7 +208,7 @@ export function ChangesTab(props: any) {
     const controller = new AbortController()
     if (!cwd || !isGit) { setResult(null); return () => controller.abort() }
     if (compareScope === 'all' && compareTarget === 'branch-upstream' && !upstream) {
-      setResult({ key: requestKey, view: null, error: '当前分支未配置上游，无法对比。', loading: false })
+      setResult({ key: requestKey, view: null, error: 'The current branch has no upstream configured; cannot compare.', loading: false })
       return () => controller.abort()
     }
     setResult({ key: requestKey, view: null, error: null, loading: true })
@@ -249,7 +249,7 @@ export function ChangesTab(props: any) {
   const files = diffView?.files ?? []
   const entries = status?.entries ? toChangeEntries(status.entries) : undefined
   const summary = indexSummary(entries)
-  const sections = buildSections(files, entries, '变更文件')
+  const sections = buildSections(files, entries, 'Changed files')
   const showSectionHeaders = !(sections.length === 1 && !entries?.length)
   const query = fileQuery.trim().toLowerCase()
   const operation: string | undefined = status?.operation ?? undefined
@@ -258,8 +258,8 @@ export function ChangesTab(props: any) {
   const stagedCount = summary.staged
   const amendable = amend && !commitMessage.trim()
   const commitIssue = commitAll
-    ? (conflictCount > 0 ? '还有未解决的冲突，先解决冲突再提交。' : (commitMessage.trim() ? null : '请填写提交信息。'))
-    : amendable ? (conflictCount > 0 ? '还有未解决的冲突，先解决冲突再提交。' : null) : commitProblem(commitMessage, summary)
+    ? (conflictCount > 0 ? 'There are unresolved conflicts, resolve them before committing.' : (commitMessage.trim() ? null : 'Please fill in the commit message.'))
+    : amendable ? (conflictCount > 0 ? 'There are unresolved conflicts, resolve them before committing.' : null) : commitProblem(commitMessage, summary)
 
   /** One place for the busy flag, the outcome notice and the refresh that follows every write. */
   const run = async (label: string, action: () => Promise<{ ok?: boolean; error?: string } | void>) => {
@@ -268,8 +268,8 @@ export function ChangesTab(props: any) {
     setActionNotice(null)
     try {
       const outcome = await action()
-      if (outcome && outcome.ok === false) setActionNotice({ ok: false, text: outcome.error || `${label}失败` })
-      else setActionNotice({ ok: true, text: `${label}完成` })
+      if (outcome && outcome.ok === false) setActionNotice({ ok: false, text: outcome.error || `${label}Failed` })
+      else setActionNotice({ ok: true, text: `${label}Done` })
       reloadStatus()
       setRefresh(value => value + 1)
     } catch (error) {
@@ -282,9 +282,9 @@ export function ChangesTab(props: any) {
   const copyText = async (label: string, text: string) => {
     try {
       const clipboard = (globalThis as any).navigator?.clipboard
-      if (!clipboard?.writeText) throw new Error('当前环境不支持剪贴板')
+      if (!clipboard?.writeText) throw new Error('The current environment does not support the clipboard')
       await clipboard.writeText(text)
-      setActionNotice({ ok: true, text: `${label}已复制` })
+      setActionNotice({ ok: true, text: `${label}Copied` })
     } catch (error) {
       setActionNotice({ ok: false, text: errorMessage(error) })
     }
@@ -301,7 +301,7 @@ export function ChangesTab(props: any) {
     upstream,
     ahead: status?.ahead,
     behind: status?.behind,
-    summary: `${summary.staged} 个已暂存 / ${summary.unstaged} 个未暂存 / ${summary.untracked} 个未跟踪，+${summary.insertions} -${summary.deletions}`,
+    summary: `${summary.staged} staged / ${summary.unstaged} unstaged / ${summary.untracked} untracked, +${summary.insertions} -${summary.deletions}`,
     staged: (entries ?? []).filter(entry => entry.section === 'staged').map(entry => entry.path),
     unstaged: (entries ?? []).filter(entry => entry.section === 'unstaged').map(entry => entry.path),
     untracked: (entries ?? []).filter(entry => entry.section === 'untracked').map(entry => entry.path),
@@ -312,15 +312,15 @@ export function ChangesTab(props: any) {
   /** Draft only: the reader reviews/edits the side conversation before choosing Send. */
   const askAgent = async (label: string, text: string) => {
     if (!text.trim()) return
-    setActionNotice({ ok: true, text: '正在打开侧边对话并填入提示词…' })
+    setActionNotice({ ok: true, text: 'Opening the side chat and filling in the prompt…' })
     try {
       const result = await deliverPrompt({ ...props, cwd }, props.sessionId, text)
-      if (!result.ok) { setActionNotice({ ok: false, text: result.error || `${label}失败` }); return }
+      if (!result.ok) { setActionNotice({ ok: false, text: result.error || `${label}Failed` }); return }
       setActionNotice({ ok: true, text: result.mode === 'new-conversation'
-        ? `已新建对话并填入「${label}」提示词，确认后再发送`
-        : `已在侧边对话填入「${label}」提示词，确认后再发送` })
+        ? `Created a new chat and filled in "${label}" prompt, confirm before sending`
+        : `Filled in the side chat "${label}" prompt, confirm before sending` })
     } catch (error) {
-      setActionNotice({ ok: false, text: errorMessage(error) || `${label}失败` })
+      setActionNotice({ ok: false, text: errorMessage(error) || `${label}Failed` })
     }
   }
 
@@ -329,17 +329,17 @@ export function ChangesTab(props: any) {
     try {
       // A commit message must describe the index, even when the review pane is showing all changes.
       const staged = compareScope === 'staged' ? diffView : await gitApi.getDiff(cwd, 'HEAD', 'working', undefined, { mode: 'staged' })
-      await askAgent('提交信息', buildCommitPrompt({ ...promptContext(), patch: staged?.files.map(file => file.rawPatch ?? '').join('') || '' }))
+      await askAgent('Commit message', buildCommitPrompt({ ...promptContext(), patch: staged?.files.map(file => file.rawPatch ?? '').join('') || '' }))
     } catch (error) { setActionNotice({ ok: false, text: errorMessage(error) }) }
   }
 
   const applyHunks = (file: DiffFile, indexes: number[], direction: 'stage' | 'unstage') => {
     const patch = buildHunkPatch(file.rawPatch ?? '', indexes)
     if (!patch) {
-      setActionNotice({ ok: false, text: '这一段改动没有可用的补丁，请改用整文件操作。' })
+      setActionNotice({ ok: false, text: 'No patch is available for this hunk, use a whole-file action instead.' })
       return
     }
-    return run(direction === 'stage' ? '暂存所选行' : '取消暂存所选行', () =>
+    return run(direction === 'stage' ? 'Stage selected lines' : 'Unstage selected lines', () =>
       gitApi.applyPatch(cwd, patch, direction === 'unstage' ? { cached: true, reverse: true } : { cached: true }))
   }
 
@@ -374,7 +374,7 @@ export function ChangesTab(props: any) {
     }
   }
 
-  const submitCommit = () => run(status?.operation ? '提交' : amend ? '修正提交' : '提交', async () => {
+  const submitCommit = () => run(status?.operation ? 'Commit' : amend ? 'Amend commit' : 'Commit', async () => {
     const outcome = await gitApi.commit(cwd, { message: commitMessage, amend, signoff, all: commitAll })
     if (!outcome.ok) return outcome
     setCommitMessage('')
@@ -386,9 +386,9 @@ export function ChangesTab(props: any) {
   // 于是先显示「正在加载仓库」再被换成「正在读取文件差异」，看起来像加载了两次。
   const firstLoad = statusLoading && !status && !statusError
   if (statusError && !status) return <div className="dsh-git-changes-panel"><div className="dsh-git-empty-state">
-    <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>暂时无法加载仓库</strong>
+    <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>Cannot load the repository right now</strong>
     <p className="dsh-git-state-error" role="alert">{statusError}</p>
-    <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reloadStatus}><IconRefresh size={14} />重新加载</button>
+    <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={reloadStatus}><IconRefresh size={14} />Reload</button>
   </div></div>
   // Non-Git repository empty state
   if (!statusLoading && !isGit) {
@@ -396,8 +396,8 @@ export function ChangesTab(props: any) {
       <div className="dsh-git-changes-panel"><div className="dsh-git-empty-state">
         {statusError && <div className="dsh-git-state-error" role="alert">{statusError}</div>}
         <div className="dsh-git-state-icon"><IconDiff size={24} /></div>
-        <strong>当前目录不是 Git 仓库</strong>
-        <p>在项目中执行 <code>git init</code> 后，即可查看分支和文件差异。</p>
+        <strong>The current directory is not a Git repository</strong>
+        <p>Run in project <code>git init</code> , then you can see branches and file diffs.</p>
         <button
           type="button"
           className="dsh-git-btn dsh-git-btn-primary"
@@ -405,7 +405,7 @@ export function ChangesTab(props: any) {
             reloadStatus()
           }}
         >
-          重新加载
+          Reload
         </button>
       </div></div>
     )
@@ -429,45 +429,45 @@ export function ChangesTab(props: any) {
             <IconFile size={13} />
             <span className="dsh-git-file-copy">
               <span>{row.path.split('/').pop() || row.path}</span>
-              <small>{row.path.includes('/') ? row.path.slice(0, row.path.lastIndexOf('/')) : '仓库根目录'}</small>
+              <small>{row.path.includes('/') ? row.path.slice(0, row.path.lastIndexOf('/')) : 'Repository root'}</small>
             </span>
           </span>
           <span className="dsh-git-file-stats">
             {row.file?.binary
-              ? <span className="dsh-git-binary-mark">二进制</span>
+              ? <span className="dsh-git-binary-mark">Binary</span>
               : row.insertions || row.deletions ? <><span className="dsh-git-ins">+{row.insertions}</span><span className="dsh-git-del">-{row.deletions}</span></> : null}
           </span>
         </button>
         <div className="dsh-git-file-actions">
-          {row.section === 'unstaged' && <button type="button" className="dsh-git-icon-btn" title="暂存这个文件" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('暂存文件', () => gitApi.stage(cwd, [row.path])) }}><IconPlus size={12} /></button>}
-          {row.section === 'staged' && <button type="button" className="dsh-git-icon-btn" title="取消暂存这个文件" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('取消暂存', () => gitApi.unstage(cwd, [row.path])) }}><IconMinus size={12} /></button>}
-          {canDiscard && <button type="button" className="dsh-git-icon-btn" title="撤销这个文件的改动" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('撤销更改', () => gitApi.discard(cwd, [row.path])) }}><IconUndo size={12} /></button>}
-          {row.section === 'staged' && <button type="button" className="dsh-git-icon-btn" title="撤销暂存并丢弃这份改动" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('撤销已暂存的更改', () => gitApi.discard(cwd, [row.path], true)) }}><IconTrash size={12} /></button>}
-          {isUntracked && <button type="button" className="dsh-git-icon-btn" title="删除这个未跟踪文件" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('删除未跟踪文件', () => gitApi.deleteUntracked(cwd, [row.path])) }}><IconTrash size={12} /></button>}
-          {isUntracked && <button type="button" className="dsh-git-icon-btn" title="加入 .gitignore" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('加入 .gitignore', () => gitApi.addToGitignore(cwd, [row.path])) }}><IconClose size={12} /></button>}
+          {row.section === 'unstaged' && <button type="button" className="dsh-git-icon-btn" title="Stage this file" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Stage file', () => gitApi.stage(cwd, [row.path])) }}><IconPlus size={12} /></button>}
+          {row.section === 'staged' && <button type="button" className="dsh-git-icon-btn" title="Unstage this file" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Unstage', () => gitApi.unstage(cwd, [row.path])) }}><IconMinus size={12} /></button>}
+          {canDiscard && <button type="button" className="dsh-git-icon-btn" title="Revert changes to this file" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Discard changes', () => gitApi.discard(cwd, [row.path])) }}><IconUndo size={12} /></button>}
+          {row.section === 'staged' && <button type="button" className="dsh-git-icon-btn" title="Unstage and discard these changes" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Discard staged changes', () => gitApi.discard(cwd, [row.path], true)) }}><IconTrash size={12} /></button>}
+          {isUntracked && <button type="button" className="dsh-git-icon-btn" title="Delete this untracked file" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Delete untracked files', () => gitApi.deleteUntracked(cwd, [row.path])) }}><IconTrash size={12} /></button>}
+          {isUntracked && <button type="button" className="dsh-git-icon-btn" title="Add to .gitignore" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Add to .gitignore', () => gitApi.addToGitignore(cwd, [row.path])) }}><IconClose size={12} /></button>}
           {row.section === 'conflict' && <>
-            <button type="button" className="dsh-git-icon-btn dsh-git-icon-btn-wide" title="保留当前分支的版本（--ours）" disabled={!!busy}
-              onClick={event => { event?.stopPropagation?.(); run('采用当前版本', () => gitApi.resolveConflict(cwd, row.path, 'ours')) }}>当前</button>
-            <button type="button" className="dsh-git-icon-btn dsh-git-icon-btn-wide" title="保留传入的版本（--theirs）" disabled={!!busy}
-              onClick={event => { event?.stopPropagation?.(); run('采用传入版本', () => gitApi.resolveConflict(cwd, row.path, 'theirs')) }}>传入</button>
-            <button type="button" className="dsh-git-icon-btn" title="查看冲突内容" onClick={event => { event?.stopPropagation?.(); showConflict(row.path) }}><IconWarning size={12} /></button>
+            <button type="button" className="dsh-git-icon-btn dsh-git-icon-btn-wide" title="Keep the current branch version (--ours)" disabled={!!busy}
+              onClick={event => { event?.stopPropagation?.(); run('Use current version', () => gitApi.resolveConflict(cwd, row.path, 'ours')) }}>Current</button>
+            <button type="button" className="dsh-git-icon-btn dsh-git-icon-btn-wide" title="Keep the incoming version (--theirs)" disabled={!!busy}
+              onClick={event => { event?.stopPropagation?.(); run('Use incoming version', () => gitApi.resolveConflict(cwd, row.path, 'theirs')) }}>Incoming</button>
+            <button type="button" className="dsh-git-icon-btn" title="View conflict" onClick={event => { event?.stopPropagation?.(); showConflict(row.path) }}><IconWarning size={12} /></button>
           </>}
-          <button type="button" className="dsh-git-icon-btn" title="在文件管理器中显示" disabled={!!busy}
-            onClick={event => { event?.stopPropagation?.(); run('在文件管理器中显示', () => gitApi.reveal(cwd, row.path)) }}><IconFolderTree size={12} /></button>
-          <button type="button" className="dsh-git-icon-btn" title="复制路径"
-            onClick={event => { event?.stopPropagation?.(); copyText('路径', row.path) }}><IconCopy size={12} /></button>
+          <button type="button" className="dsh-git-icon-btn" title="Reveal in file manager" disabled={!!busy}
+            onClick={event => { event?.stopPropagation?.(); run('Reveal in file manager', () => gitApi.reveal(cwd, row.path)) }}><IconFolderTree size={12} /></button>
+          <button type="button" className="dsh-git-icon-btn" title="Copy path"
+            onClick={event => { event?.stopPropagation?.(); copyText('Path', row.path) }}><IconCopy size={12} /></button>
         </div>
         {conflictOpen === row.path && (
           <div className="dsh-git-conflict-view">
             {conflictError ? <div className="dsh-git-conflict-line dsh-git-error" role="alert">{conflictError}</div>
-              : !conflictFile ? <div className="dsh-git-conflict-line">正在读取冲突内容…</div>
-                : conflictFile.binary ? <div className="dsh-git-conflict-line">二进制文件无法显示冲突两侧的内容，请用「当前 / 传入」选择一侧。</div>
+              : !conflictFile ? <div className="dsh-git-conflict-line">Reading conflict content…</div>
+                : conflictFile.binary ? <div className="dsh-git-conflict-line">A binary file cannot show both conflict sides; choose a side with "Current / Incoming".</div>
                   : conflictFile.lines.map((line, index) => (
                     <div key={index} className={`dsh-git-conflict-line dsh-git-conflict-${line.type}`}>{line.content}</div>
                   ))}
@@ -483,16 +483,16 @@ export function ChangesTab(props: any) {
         : <div className="dsh-git-changes-header">
         <div className="dsh-git-repo-row">
           <span className="dsh-git-current-branch" title={status?.branch || 'HEAD'}><IconBranch size={15} /><span>{status?.branch || 'HEAD'}</span></span>
-          {!!status?.ahead && <span className="dsh-git-ahead-behind dsh-git-ahead" title={`领先上游 ${status.ahead} 个提交`}><IconArrowUp size={12} />{status.ahead}</span>}
-          {!!status?.behind && <span className="dsh-git-ahead-behind dsh-git-behind" title={`落后上游 ${status.behind} 个提交`}><IconArrowDown size={12} />{status.behind}</span>}
-          {!!status?.stashCount && <span className="dsh-git-stash-badge" title={`有 ${status.stashCount} 条储藏`}><IconStash size={12} />{status.stashCount}</span>}
+          {!!status?.ahead && <span className="dsh-git-ahead-behind dsh-git-ahead" title={` ahead of upstream ${status.ahead} commits`}><IconArrowUp size={12} />{status.ahead}</span>}
+          {!!status?.behind && <span className="dsh-git-ahead-behind dsh-git-behind" title={` behind upstream ${status.behind} commits`}><IconArrowDown size={12} />{status.behind}</span>}
+          {!!status?.stashCount && <span className="dsh-git-stash-badge" title={`has ${status.stashCount} stash entries`}><IconStash size={12} />{status.stashCount}</span>}
           <div className="dsh-git-change-summary">
-            {diffView && <span className="dsh-git-file-count">{diffView.files.length ? `${diffView.files.length} 个文件` : '无变更'}</span>}
-            {!!diffView?.files.length && <div className="dsh-git-stat-badge" aria-label={`新增 ${diffView.totalInsertions} 行，删除 ${diffView.totalDeletions} 行`}>
+            {diffView && <span className="dsh-git-file-count">{diffView.files.length ? `${diffView.files.length} files` : 'No changes'}</span>}
+            {!!diffView?.files.length && <div className="dsh-git-stat-badge" aria-label={`Added ${diffView.totalInsertions} lines, deleted ${diffView.totalDeletions} lines`}>
               <span className="dsh-git-ins">+{diffView.totalInsertions}</span><span className="dsh-git-del">−{diffView.totalDeletions}</span>
             </div>}
           </div>
-          <button type="button" className="dsh-git-refresh-btn" aria-label="刷新变更" title="刷新变更" disabled={loadingDiff || statusLoading} onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}>
+          <button type="button" className="dsh-git-refresh-btn" aria-label="Refresh changes" title="Refresh changes" disabled={loadingDiff || statusLoading} onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}>
             <IconRefresh size={15} className={loadingDiff || statusLoading ? 'dsh-git-spin' : ''} />
           </button>
         </div>
@@ -502,23 +502,23 @@ export function ChangesTab(props: any) {
             event.currentTarget.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
           }
         }}>
-          <button type="button" className={`dsh-git-compare-trigger ${compareDropdownOpen ? 'dsh-git-compare-trigger-open' : ''}`} onClick={() => setCompareDropdownOpen(!compareDropdownOpen)} title="切换对比基准" aria-expanded={compareDropdownOpen}>
+          <button type="button" className={`dsh-git-compare-trigger ${compareDropdownOpen ? 'dsh-git-compare-trigger-open' : ''}`} onClick={() => setCompareDropdownOpen(!compareDropdownOpen)} title="Switch diff base" aria-expanded={compareDropdownOpen}>
             <IconDiff size={15} />
-            <span className="dsh-git-compare-label">{compareTarget === 'working-head' ? '工作区' : (status?.branch || 'HEAD')}</span>
+            <span className="dsh-git-compare-label">{compareTarget === 'working-head' ? 'Workspace' : (status?.branch || 'HEAD')}</span>
             <span className="dsh-git-compare-arrow" aria-hidden="true">→</span>
-            <span className="dsh-git-compare-base">{compareTarget === 'working-head' ? 'HEAD' : (upstream || '未配置上游')}</span>
+            <span className="dsh-git-compare-base">{compareTarget === 'working-head' ? 'HEAD' : (upstream || 'No upstream configured')}</span>
             <IconChevronDown size={13} />
           </button>
           {compareDropdownOpen && <>
             <div className="dsh-git-compare-backdrop" onClick={() => setCompareDropdownOpen(false)} />
-            <div className="dsh-git-compare-menu" role="group" aria-label="对比基准">
-              <div className="dsh-git-compare-menu-heading">对比基准</div>
+            <div className="dsh-git-compare-menu" role="group" aria-label="Compare against">
+              <div className="dsh-git-compare-menu-heading">Compare against</div>
               <button type="button" className="dsh-git-compare-option" aria-pressed={compareTarget === 'working-head'} onClick={event => {
                 setCompareTarget('working-head'); setCompareDropdownOpen(false)
                 event.currentTarget.closest('.dsh-git-compare-control')?.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
               }}>
                 <span className="dsh-git-option-icon"><IconDiff size={17} /></span>
-                <span className="dsh-git-option-copy"><strong>未提交的更改</strong><span>工作区与 HEAD 对比</span></span>
+                <span className="dsh-git-option-copy"><strong>Uncommitted changes</strong><span>Working tree vs HEAD</span></span>
                 {compareTarget === 'working-head' && <IconCheck size={16} />}
               </button>
               <button type="button" className="dsh-git-compare-option" disabled={!upstream} aria-pressed={compareTarget === 'branch-upstream'} onClick={event => {
@@ -526,7 +526,7 @@ export function ChangesTab(props: any) {
                 event.currentTarget.closest('.dsh-git-compare-control')?.querySelector<HTMLButtonElement>('.dsh-git-compare-trigger')?.focus()
               }}>
                 <span className="dsh-git-option-icon"><IconBranch size={17} /></span>
-                <span className="dsh-git-option-copy"><strong>与上游分支对比{!upstream && <small>未配置</small>}</strong><span>{upstream ? `${status?.branch || 'HEAD'} → ${upstream}` : '配置上游分支后可用'}</span></span>
+                <span className="dsh-git-option-copy"><strong>Compare with upstream{!upstream && <small>Not configured</small>}</strong><span>{upstream ? `${status?.branch || 'HEAD'} → ${upstream}` : 'Available after configuring an upstream branch'}</span></span>
                 {compareTarget === 'branch-upstream' && <IconCheck size={16} />}
               </button>
             </div>
@@ -537,8 +537,8 @@ export function ChangesTab(props: any) {
       {operation && <div className="dsh-git-operation-banner" role="status">
         <span className="dsh-git-operation-icon"><IconWarning size={16} /></span>
         <div className="dsh-git-operation-copy">
-          <strong>{OPERATION_LABELS[operation] ?? `Git 操作进行中（${operation}）`}</strong>
-          <span>{conflictCount > 0 ? `有 ${conflictCount} 个文件存在冲突，解决后即可继续。` : '没有待解决的冲突，可以继续这次操作。'}</span>
+          <strong>{OPERATION_LABELS[operation] ?? `Git operation in progress (${operation})`}</strong>
+          <span>{conflictCount > 0 ? `has ${conflictCount} files have conflicts; resolve them to continue.` : 'There are no conflicts to resolve; you can continue this operation.'}</span>
         </div>
         <div className="dsh-git-operation-actions">
           {operationSteps.map(step => (
@@ -553,17 +553,17 @@ export function ChangesTab(props: any) {
       {actionNotice && <div className={`dsh-git-changes-notice ${actionNotice.ok ? 'dsh-git-action-notice' : 'dsh-git-error'}`} role="status">{actionNotice.text}</div>}
       {busy && <div className="dsh-git-changes-notice dsh-git-busy-notice" role="status">{busy}…</div>}
       {firstLoad || loadingDiff ? <ChangesLoading /> : diffError ? <div className="dsh-git-empty-state">
-        <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>无法读取差异</strong>
+        <div className="dsh-git-state-icon"><IconDiff size={24} /></div><strong>Cannot read the diff</strong>
         <p className="dsh-git-state-error" role="alert">{diffError}</p>
-        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}><IconRefresh size={14} />重试</button>
+        <button type="button" className="dsh-git-btn dsh-git-btn-secondary" onClick={() => { reloadStatus(); setRefresh(value => value + 1) }}><IconRefresh size={14} />Retry</button>
       </div> : diffView && diffView.files.length === 0 ? <div className="dsh-git-empty-state">
         <div className="dsh-git-state-icon dsh-git-state-clean"><IconCheck size={26} /></div>
-        <strong>{compareScope === 'staged' ? '暂存区是空的'
-          : compareScope === 'unstaged' ? '没有未暂存的更改'
-            : compareTarget === 'working-head' ? '工作区很干净' : '与上游分支一致'}</strong>
+        <strong>{compareScope === 'staged' ? 'The staging area is empty'
+          : compareScope === 'unstaged' ? 'No unstaged changes'
+            : compareTarget === 'working-head' ? 'Working tree is clean' : 'Up to date with upstream branch'}</strong>
         <p>{compareScope !== 'all'
-          ? '切换上方的范围可以查看另一侧的差异。'
-          : compareTarget === 'working-head' ? '暂无未提交的更改，新的变更会显示在这里。' : '当前分支与上游之间没有文件差异。'}</p>
+          ? 'Switch the range above to view the other side of the diff.'
+          : compareTarget === 'working-head' ? 'No uncommitted changes yet, new changes will appear here.' : 'There are no file differences between the current branch and its upstream.'}</p>
       </div> : <div className="dsh-git-changes-body">
         {/* File history/blame takes over both columns: appended below the commit form it
             landed outside the visible area of the workbench, which read as "no reaction". */}
@@ -576,27 +576,27 @@ export function ChangesTab(props: any) {
             onScroll={event => { uiStateRef.current.fileListScrollTop = event.currentTarget.scrollTop }}
           >
             <div className="dsh-git-file-list-heading">
-              <span>变更文件</span>
+              <span>Changed files</span>
               <span className="dsh-git-file-list-count">
                 {summary.unstaged > 0 && <button type="button" className="dsh-git-link-btn" disabled={!!busy}
-                  onClick={() => run('暂存全部', () => gitApi.stageAll(cwd))}>全部暂存</button>}
+                  onClick={() => run('Stage all', () => gitApi.stageAll(cwd))}>Stage all</button>}
                 {summary.staged > 0 && <button type="button" className="dsh-git-link-btn" disabled={!!busy}
-                  onClick={() => run('取消全部暂存', () => gitApi.unstageAll(cwd))}>全部取消</button>}
+                  onClick={() => run('Unstage all', () => gitApi.unstageAll(cwd))}>Unstage all</button>}
                 <span>{diffView?.files.length || 0}</span>
               </span>
             </div>
             {files.length > 6 && <div className="dsh-git-file-filter">
               <IconFile size={13} />
-              <input className="dsh-git-file-filter-input" value={fileQuery} placeholder="筛选文件" onChange={event => setFileQuery(event.currentTarget.value)} />
-              {fileQuery && <button type="button" className="dsh-git-icon-btn" title="清除筛选" onClick={() => setFileQuery('')}><IconClose size={12} /></button>}
+              <input className="dsh-git-file-filter-input" value={fileQuery} placeholder="Filter files" onChange={event => setFileQuery(event.currentTarget.value)} />
+              {fileQuery && <button type="button" className="dsh-git-icon-btn" title="Clear filter" onClick={() => setFileQuery('')}><IconClose size={12} /></button>}
             </div>}
             {focusPath && <div className="dsh-git-dirty-warning">
               <IconFile size={13} />
-              <span>只加载了 <span className="dsh-git-mono">{focusPath}</span> 的补丁</span>
-              <button type="button" className="dsh-git-link-btn" onClick={() => setFocusedFile(null)}>显示全部文件</button>
+              <span>Loaded only <span className="dsh-git-mono">{focusPath}</span> patch</span>
+              <button type="button" className="dsh-git-link-btn" onClick={() => setFocusedFile(null)}>Show all files</button>
             </div>}
             {!diffView || diffView.files.length === 0 ? (
-              <div className="dsh-git-file-list-empty">当前无可对比的更改</div>
+              <div className="dsh-git-file-list-empty">No changes to compare</div>
             ) : (
               sections.map(section => {
                 const rows = query
@@ -633,33 +633,33 @@ export function ChangesTab(props: any) {
                   </span>
                 </div>
                 <div className="dsh-git-head-actions">
-                  {activeFile.status === 'untracked' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="把这个文件加入暂存区"
-                    disabled={!!busy} onClick={() => run('暂存文件', () => gitApi.stage(cwd, [activeFile.path]))}><IconPlus size={13} /><span>暂存</span></button>}
-                  {activeFile.status === 'deleted' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="恢复这个被删除的文件"
-                    disabled={!!busy} onClick={() => run('恢复文件', () => gitApi.discard(cwd, [activeFile.path]))}><IconUndo size={13} /><span>恢复</span></button>}
-                  {canPreviewImage(activeFile) && <span className="dsh-git-image-hint"><IconImage size={13} />图片</span>}
+                  {activeFile.status === 'untracked' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Add this file to the index"
+                    disabled={!!busy} onClick={() => run('Stage file', () => gitApi.stage(cwd, [activeFile.path]))}><IconPlus size={13} /><span>Stage</span></button>}
+                  {activeFile.status === 'deleted' && <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Restore this deleted file"
+                    disabled={!!busy} onClick={() => run('Restore file', () => gitApi.discard(cwd, [activeFile.path]))}><IconUndo size={13} /><span>Restore</span></button>}
+                  {canPreviewImage(activeFile) && <span className="dsh-git-image-hint"><IconImage size={13} />Image</span>}
                   <details className="dsh-git-file-menu">
-                    <summary className="dsh-git-btn dsh-git-btn-secondary">更多操作<IconChevronDown size={12} /></summary>
+                    <summary className="dsh-git-btn dsh-git-btn-secondary">More actions<IconChevronDown size={12} /></summary>
                     <div className="dsh-git-file-menu-items">
-                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="查看这个文件的历史与逐行责任"
-                    onClick={() => setInspectFile(activeFile.path)}><IconHistory size={13} /><span>历史</span></button>
+                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="View this file's history and line-by-line blame"
+                    onClick={() => setInspectFile(activeFile.path)}><IconHistory size={13} /><span>History</span></button>
                   {/* Focusing narrows the request to this one path, so a huge tree does not
                       have to travel to render a single file. */}
                   {focusPath === activeFile.path
-                    ? <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-tool-btn-active" title="重新载入全部文件的补丁"
-                      onClick={() => setFocusedFile(null)}><IconRefresh size={13} /><span>全部文件</span></button>
-                    : <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="只向 Git 请求这个文件的补丁"
-                      onClick={() => setFocusedFile({ cwd, path: activeFile.path })}><IconFile size={13} /><span>只加载此文件</span></button>}
-                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-ai-btn" title="打开侧边对话，填入解释当前文件改动的提示词（不自动发送）"
-                    onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('解释这个文件', buildExplainPrompt({ path: activeFile.path, patch: activeFile.rawPatch ?? '', statusLabel: statusTone(activeFile.status) === 'added' ? '新增' : statusTone(activeFile.status) === 'deleted' ? '删除' : '修改' }))}>
-                    <IconSparkle size={13} /><span>解释改动</span>
+                    ? <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-tool-btn-active" title="Reload the patches for all files"
+                      onClick={() => setFocusedFile(null)}><IconRefresh size={13} /><span>All files</span></button>
+                    : <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Only request the patch for this file from Git"
+                      onClick={() => setFocusedFile({ cwd, path: activeFile.path })}><IconFile size={13} /><span>Load this file only</span></button>}
+                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-ai-btn" title="Open the side chat and fill in the prompt explaining the current file's changes (does not send automatically)"
+                    onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('Explain this file', buildExplainPrompt({ path: activeFile.path, patch: activeFile.rawPatch ?? '', statusLabel: statusTone(activeFile.status) === 'added' ? 'Added' : statusTone(activeFile.status) === 'deleted' ? 'Deleted' : 'Modified' }))}>
+                    <IconSparkle size={13} /><span>Explain changes</span>
                   </button>
-                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="复制这个文件的路径"
-                    onClick={() => copyText('路径', activeFile.path)}><IconCopy size={13} /><span>复制路径</span></button>
-                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="在文件管理器中显示"
-                    disabled={!!busy} onClick={() => run('在文件管理器中显示', () => gitApi.reveal(cwd, activeFile.path))}><IconFolderTree size={13} /><span>在文件管理器中显示</span></button>
-                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="复制这个文件的补丁"
-                    onClick={() => copyText('补丁', activeFile.rawPatch ?? '')}><IconDiff size={13} /><span>复制补丁</span></button>
+                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Copy this file's path"
+                    onClick={() => copyText('Path', activeFile.path)}><IconCopy size={13} /><span>Copy path</span></button>
+                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Reveal in file manager"
+                    disabled={!!busy} onClick={() => run('Reveal in file manager', () => gitApi.reveal(cwd, activeFile.path))}><IconFolderTree size={13} /><span>Reveal in file manager</span></button>
+                  <button type="button" className="dsh-git-btn dsh-git-btn-secondary" title="Copy this file's patch"
+                    onClick={() => copyText('Patch', activeFile.rawPatch ?? '')}><IconDiff size={13} /><span>Copy patch</span></button>
                     </div>
                   </details>
                   {activeFile.status !== 'deleted' && <OpenInEditorMenu repo={cwd} file={activeFile.path} onNotice={setEditorNotice} />}
@@ -667,7 +667,7 @@ export function ChangesTab(props: any) {
               </div>
 
               <div className="dsh-git-diff-toolbar">
-                <div className="dsh-git-scope-group" role="group" aria-label="对比范围">
+                <div className="dsh-git-scope-group" role="group" aria-label="Diff range">
                   {SCOPES.map(scope => (
                     <button key={scope.key} type="button" title={scope.hint} aria-pressed={compareScope === scope.key}
                       className={`dsh-git-scope-option ${compareScope === scope.key ? 'dsh-git-scope-option-active' : ''}`}
@@ -676,22 +676,22 @@ export function ChangesTab(props: any) {
                   ))}
                 </div>
                 <div className="dsh-git-tool-group">
-                  <button type="button" className="dsh-git-tool-btn" title="显示更少或更多上下文行"
+                  <button type="button" className="dsh-git-tool-btn" title="Show fewer or more context lines"
                     onClick={() => setContextLines(CONTEXT_CHOICES[(CONTEXT_CHOICES.indexOf(contextLines) + 1) % CONTEXT_CHOICES.length])}>
-                    <IconColumns size={13} />上下文 {contextLines}
+                    <IconColumns size={13} />Context {contextLines}
                   </button>
                   <button type="button" className={`dsh-git-tool-btn ${wordLevel ? 'dsh-git-tool-btn-active' : ''}`} aria-pressed={wordLevel}
-                    title="高亮行内改动的词" onClick={() => setWordLevel(value => !value)}><span className="dsh-git-tool-glyph" aria-hidden="true">a</span>词级</button>
+                    title="Highlight changed words inline" onClick={() => setWordLevel(value => !value)}><span className="dsh-git-tool-glyph" aria-hidden="true">a</span>Word level</button>
                   <button type="button" className={`dsh-git-tool-btn ${ignoreWhitespace ? 'dsh-git-tool-btn-active' : ''}`} aria-pressed={ignoreWhitespace}
-                    title="忽略空白差异（git diff -w）" onClick={() => setIgnoreWhitespace(value => !value)}>忽略空白</button>
+                    title="Ignore whitespace differences (git diff -w)" onClick={() => setIgnoreWhitespace(value => !value)}>Ignore whitespace</button>
                   <button type="button" className={`dsh-git-tool-btn ${splitView ? 'dsh-git-tool-btn-active' : ''}`} aria-pressed={splitView}
-                    title="并排显示改动前后的两栏" onClick={() => setSplitView(value => !value)}><IconColumns size={13} />并排</button>
+                    title="Show the before and after in two side-by-side columns" onClick={() => setSplitView(value => !value)}><IconColumns size={13} />Side by side</button>
                 </div>
                 <div className="dsh-git-tool-group">
-                  <button type="button" className="dsh-git-tool-btn" title="上一处改动" disabled={!activeFile.hunks.length}
+                  <button type="button" className="dsh-git-tool-btn" title="Previous change" disabled={!activeFile.hunks.length}
                     onClick={() => jumpHunk(-1)}><IconChevronUp size={13} /></button>
                   <span className="dsh-git-hunk-position">{activeFile.hunks.length ? `${Math.min(activeHunk + 1, activeFile.hunks.length)}/${activeFile.hunks.length}` : '—'}</span>
-                  <button type="button" className="dsh-git-tool-btn" title="下一处改动" disabled={!activeFile.hunks.length}
+                  <button type="button" className="dsh-git-tool-btn" title="Next change" disabled={!activeFile.hunks.length}
                     onClick={() => jumpHunk(1)}><IconChevronDown size={13} /></button>
                 </div>
               </div>
@@ -707,9 +707,9 @@ export function ChangesTab(props: any) {
                     <img className="dsh-git-image-preview" alt={activeFile.path} src={blobUrl(cwd, activeFile.path, status?.revision)} />
                     <span className="dsh-git-image-caption">{activeFile.path}</span>
                   </div> : <div className="dsh-git-diff-note">
-                    {activeFile.status === 'deleted' ? '文件已被删除'
-                      : activeFile.binary ? '二进制文件没有可显示的差异行。'
-                        : '文件未包含差异行，或这个范围内没有改动。'}
+                    {activeFile.status === 'deleted' ? 'File has been deleted'
+                      : activeFile.binary ? 'Binary files have no diff lines to display.'
+                        : 'The file contains no diff lines, or there are no changes in this range.'}
                   </div>
                 ) : (
                   activeFile.hunks.map((hunk, hunkIndex) => {
@@ -722,12 +722,12 @@ export function ChangesTab(props: any) {
                         <div className="dsh-git-hunk-header">
                           <span className="dsh-git-hunk-title">{hunk.header}</span>
                           <span className="dsh-git-hunk-actions">
-                            {canStageHunk && <button type="button" className="dsh-git-hunk-action" title="只暂存这一段改动" disabled={!!busy}
-                              onClick={() => applyHunks(activeFile, [hunkIndex], 'stage')}><IconPlus size={11} />暂存这些行</button>}
-                            {canUnstageHunk && <button type="button" className="dsh-git-hunk-action" title="只取消暂存这一段改动" disabled={!!busy}
-                              onClick={() => applyHunks(activeFile, [hunkIndex], 'unstage')}><IconMinus size={11} />取消暂存这些行</button>}
-                            <button type="button" className="dsh-git-hunk-action" title="复制这一段补丁"
-                              onClick={() => copyText('补丁', buildHunkPatch(activeFile.rawPatch ?? '', [hunkIndex]) || activeFile.rawPatch || '')}><IconCopy size={11} /></button>
+                            {canStageHunk && <button type="button" className="dsh-git-hunk-action" title="Stage only this hunk" disabled={!!busy}
+                              onClick={() => applyHunks(activeFile, [hunkIndex], 'stage')}><IconPlus size={11} />Stage these lines</button>}
+                            {canUnstageHunk && <button type="button" className="dsh-git-hunk-action" title="Unstage only this hunk" disabled={!!busy}
+                              onClick={() => applyHunks(activeFile, [hunkIndex], 'unstage')}><IconMinus size={11} />Unstage these lines</button>}
+                            <button type="button" className="dsh-git-hunk-action" title="Copy this hunk"
+                              onClick={() => copyText('Patch', buildHunkPatch(activeFile.rawPatch ?? '', [hunkIndex]) || activeFile.rawPatch || '')}><IconCopy size={11} /></button>
                           </span>
                         </div>
                         {splitView ? (
@@ -775,22 +775,22 @@ export function ChangesTab(props: any) {
               </div>
             </>
           ) : (
-            <div className="dsh-git-diff-placeholder">选择左侧文件以查看代码差异</div>
+            <div className="dsh-git-diff-placeholder">Select a file on the left to see the diff</div>
           )}
         </div>
         </>}
       </div>}
 
-      {diffView && diffView.files.length > 0 && <section className="dsh-git-commit-box" aria-label="提交更改">
+      {diffView && diffView.files.length > 0 && <section className="dsh-git-commit-box" aria-label="Commit changes">
         <div className="dsh-git-commit-editor">
         <div className="dsh-git-commit-head">
-          <span className="dsh-git-commit-title"><IconCommit size={14} />提交</span>
-          <span className="dsh-git-commit-count">{stagedCount ? `${stagedCount} 个文件已暂存` : '暂存区为空'}</span>
+          <span className="dsh-git-commit-title"><IconCommit size={14} />Commit</span>
+          <span className="dsh-git-commit-count">{stagedCount ? `${stagedCount} files staged` : 'Staging area is empty'}</span>
         </div>
         <textarea
           className="dsh-git-commit-input"
           rows={3}
-          placeholder={amend ? '留空则沿用上一条提交信息' : '提交信息：第一行是标题，空行之后是正文'}
+          placeholder={amend ? 'Leave blank to reuse the previous commit message' : 'Commit message: the first line is the subject, the body follows after a blank line'}
           value={commitMessage}
           disabled={!!busy}
           onChange={event => setCommitMessage(event.currentTarget.value)}
@@ -806,40 +806,40 @@ export function ChangesTab(props: any) {
         </div>
         <div className="dsh-git-commit-controls">
         <div className="dsh-git-commit-options">
-          <label className="dsh-git-checkbox" title="改写最后一次提交，而不是新建一个">
-            <input type="checkbox" checked={amend} disabled={!!busy} onChange={() => setAmend(value => !value)} />修正上次提交
+          <label className="dsh-git-checkbox" title="Rewrite the last commit instead of creating a new one">
+            <input type="checkbox" checked={amend} disabled={!!busy} onChange={() => setAmend(value => !value)} />Amend last commit
           </label>
-          <label className="dsh-git-checkbox" title="给提交信息加上 Signed-off-by 尾注">
-            <input type="checkbox" checked={signoff} disabled={!!busy} onChange={() => setSignoff(value => !value)} />签名
+          <label className="dsh-git-checkbox" title="Add a Signed-off-by trailer to the commit message">
+            <input type="checkbox" checked={signoff} disabled={!!busy} onChange={() => setSignoff(value => !value)} />Signature
           </label>
-          <label className="dsh-git-checkbox" title="连同未暂存的改动一起提交（-a）">
-            <input type="checkbox" checked={commitAll} disabled={!!busy} onChange={() => setCommitAll(value => !value)} />全部改动
+          <label className="dsh-git-checkbox" title="Commit unstaged changes as well (-a)">
+            <input type="checkbox" checked={commitAll} disabled={!!busy} onChange={() => setCommitAll(value => !value)} />All changes
           </label>
         </div>
         {commitIssue && <div className="dsh-git-commit-hint">{commitIssue}</div>}
         <div className="dsh-git-commit-actions">
           <button type="button" className="dsh-git-btn dsh-git-btn-primary" disabled={!!busy || !!commitIssue} onClick={submitCommit}>
-            <IconCheck size={13} />{amend ? '修正提交' : '提交'}
+            <IconCheck size={13} />{amend ? 'Amend commit' : 'Commit'}
           </button>
-          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!busy} title="撤销上一次提交，改动退回暂存区"
-            onClick={() => run('撤销上一次提交', () => gitApi.undoCommit(cwd))}><IconUndo size={13} />撤销提交</button>
+          <button type="button" className="dsh-git-btn dsh-git-btn-secondary" disabled={!!busy} title="Undo the last commit, returning the changes to the index"
+            onClick={() => run('Undo last commit', () => gitApi.undoCommit(cwd))}><IconUndo size={13} />Revert commit</button>
           <button type="button" className="dsh-git-btn dsh-git-btn-secondary dsh-git-ai-btn" disabled={!!busy}
-            title="打开侧边对话，填入根据暂存区编写提交信息的提示词（不自动发送）"
+            title="Open the side chat and fill in the prompt for writing a commit message from the staged changes (does not send automatically)"
             onClick={draftCommitPrompt}>
-            <IconSparkle size={13} />AI 写信息
+            <IconSparkle size={13} />AI write message
           </button>
         </div>
         {/* These actions share the commit form's repository context. */}
         <div className="dsh-git-ai-row">
           <button type="button" className="dsh-git-ai-btn" disabled={!!busy}
-            title="打开侧边对话，填入当前 Git 上下文（不自动发送）"
-            onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('Git 上下文', buildContextText(promptContext()))}>
-            <IconSparkle size={12} />注入 Git 上下文
+            title="Open the side chat and fill in the current Git context (does not send automatically)"
+            onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('Git context', buildContextText(promptContext()))}>
+            <IconSparkle size={12} />Inject Git context
           </button>
           <button type="button" className="dsh-git-ai-btn" disabled={!!busy}
-            title="打开侧边对话，填入审查当前改动的提示词（不自动发送）"
-            onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('审查改动', buildReviewPrompt(promptContext()))}>
-            <IconSparkle size={12} />AI 审查改动
+            title="Open the side chat and fill in the prompt for reviewing the current changes (does not send automatically)"
+            onClick={event => (event?.detail ?? 0) > 1 ? undefined : askAgent('Review changes', buildReviewPrompt(promptContext()))}>
+            <IconSparkle size={12} />AI review changes
           </button>
         </div>
         </div>

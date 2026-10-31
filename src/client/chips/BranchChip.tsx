@@ -43,29 +43,29 @@ function RepositoryChip({ cwd, sessionId, onOpenGitPanel }: {
     setOpen(false)
     setBranchError(null)
     try {
-      if (!onOpenGitPanel) throw new Error('Git 工作台尚未就绪')
+      if (!onOpenGitPanel) throw new Error('The Git workbench is not ready yet')
       await onOpenGitPanel(view, { cwd, sessionId })
     } catch (error) { setBranchError(error instanceof Error ? error.message : String(error)) }
   }
 
-  if (loading && !status && !error) return <span className="dsh-git-muted dsh-git-loading" role="status">加载中…</span>
-  if (!status || !isGit) return error ? <span className="dsh-git-error" role="alert">{error} <button type="button" onClick={reload}>重试</button></span> : null
+  if (loading && !status && !error) return <span className="dsh-git-muted dsh-git-loading" role="status">Loading…</span>
+  if (!status || !isGit) return error ? <span className="dsh-git-error" role="alert">{error} <button type="button" onClick={reload}>Retry</button></span> : null
   return <div className="dsh-git-branch-control">
     <button type="button" className={`dsh-git-chip ${open ? 'dsh-git-chip-active' : ''}`} onClick={handleTogglePopover}
       disabled={fetchingBranches} aria-haspopup="dialog" aria-expanded={open} aria-busy={fetchingBranches}
-      title={`当前分支: ${status.branch}${status.dirtyFiles > 0 ? ` (${status.dirtyFiles} 个修改文件)` : ''}`}>
+      title={`Current branch: ${status.branch}${status.dirtyFiles > 0 ? ` (${status.dirtyFiles} modified files)` : ''}`}>
       <IconBranch size={16} /><span className="dsh-git-chip-branch">{status.branch || 'HEAD'}</span>
       {/* 计数用图标箭头，不用正文里的 ↑/↓ 字形：13px 文本箭头笔画过细，紧跟分支名会被读成「main 13」。 */}
-      {(status.ahead || 0) > 0 && <span className='dsh-git-ahead' title={`领先上游 ${status.ahead} 个提交`}><IconArrowUp size={12} />{status.ahead}</span>}
-      {(status.behind || 0) > 0 && <span className='dsh-git-behind' title={`落后上游 ${status.behind} 个提交`}><IconArrowDown size={12} />{status.behind}</span>}
-      {(status.stashCount || 0) > 0 && <span className='dsh-git-badge'>储藏 {status.stashCount}</span>}
+      {(status.ahead || 0) > 0 && <span className='dsh-git-ahead' title={` ahead of upstream ${status.ahead} commits`}><IconArrowUp size={12} />{status.ahead}</span>}
+      {(status.behind || 0) > 0 && <span className='dsh-git-behind' title={` behind upstream ${status.behind} commits`}><IconArrowDown size={12} />{status.behind}</span>}
+      {(status.stashCount || 0) > 0 && <span className='dsh-git-badge'>Stashes {status.stashCount}</span>}
       <IconChevronDown size={12} />
     </button>
     {(branchError || error) && <span className="dsh-git-error" role="alert">{branchError || error}</span>}
     {open && branchesView && <BranchPopover view={branchesView} path={cwd} status={status || undefined} onReloadStatus={reload}
       onSwitch={async target => {
         const result = await gitApi.switchBranch(cwd, target)
-        if (!result.ok) throw new Error(result.error?.message || '切换分支失败')
+        if (!result.ok) throw new Error(result.error?.message || 'Failed to switch branch')
         reload()
       }}
       onCreateBranch={() => { void openPanel('create-branch') }} onOpenGraph={() => { void openPanel('history') }}

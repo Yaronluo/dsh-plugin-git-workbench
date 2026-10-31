@@ -367,15 +367,15 @@ export function createEditorLauncher(options: EditorLauncherOptions = {}): Edito
 
   /** Keeps the editor inside the repository the user opened; rejects flag-like input. */
   const resolveTarget = (target: EditorTarget): { absolutePath: string; display: string } | { error: string } => {
-    if (!target.repo?.trim()) return { error: '缺少仓库路径' }
-    if (UNSAFE_TARGET.test(target.repo) || (target.file && UNSAFE_TARGET.test(target.file))) return { error: '文件路径包含不支持用于外部编辑器的字符' }
+    if (!target.repo?.trim()) return { error: 'Missing repository path' }
+    if (UNSAFE_TARGET.test(target.repo) || (target.file && UNSAFE_TARGET.test(target.file))) return { error: 'The file path contains characters that are not supported for external editors' }
     const repo = resolve(target.repo)
-    if (!fileExists(repo)) return { error: '仓库路径已不存在' }
+    if (!fileExists(repo)) return { error: 'The repository path no longer exists' }
     if (!target.file) return { absolutePath: repo, display: repo }
     const absolutePath = resolve(repo, target.file)
     const rel = relative(repo, absolutePath)
-    if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return { error: '只能打开当前仓库内的文件' }
-    if (!fileExists(absolutePath)) return { error: '文件已不存在，可能已被删除或重命名' }
+    if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return { error: 'Only files inside the current repository can be opened' }
+    if (!fileExists(absolutePath)) return { error: 'The file no longer exists; it may have been deleted or renamed' }
     return { absolutePath, display: target.file }
   }
 
@@ -413,7 +413,7 @@ export function createEditorLauncher(options: EditorLauncherOptions = {}): Edito
       await openWithSystemDefault(absolutePath)
       return { ok: true, target: display }
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : '无法打开默认应用' }
+      return { ok: false, error: error instanceof Error ? error.message : 'Cannot open the default application' }
     }
   }
 
@@ -524,7 +524,7 @@ export function createEditorLauncher(options: EditorLauncherOptions = {}): Edito
           await launch(command, editorArguments(candidate, absolutePath, target.line))
           return { ok: true, editor: candidate.label, target: display }
         } catch (error) {
-          return { ok: false, error: error instanceof Error ? error.message : '无法启动编辑器' }
+          return { ok: false, error: error instanceof Error ? error.message : 'Cannot start editor' }
         }
       }
 
@@ -540,11 +540,11 @@ export function createEditorLauncher(options: EditorLauncherOptions = {}): Edito
         if (!candidate) {
           const override = env.DSH_GIT_EDITOR?.trim()
           return { ok: false, error: override
-            ? `已配置 DSH_GIT_EDITOR=${override}，只能用它打开，不能改用 ${requested}`
-            : `找不到编辑器：${requested}` }
+            ? `DSH_GIT_EDITOR is configured as ${override}, it can only be opened with it, cannot switch to ${requested}`
+            : `Editor not found:${requested}` }
         }
         const command = await locate(candidate)
-        if (!command) return { ok: false, error: `找不到编辑器：${candidate.label}（命令不在 PATH 中，也不在常见安装位置）` }
+        if (!command) return { ok: false, error: `Editor not found:${candidate.label}(the command is not in PATH, nor in the usual install locations)` }
         return start(candidate, command)
       }
 
@@ -584,7 +584,7 @@ export function createEditorLauncher(options: EditorLauncherOptions = {}): Edito
         else if (platform === 'darwin') await launch('open', isFile ? ['-R', absolutePath] : [absolutePath])
         else await launch('xdg-open', [isFile ? dirname(absolutePath) : absolutePath])
       } catch (error) {
-        return { ok: false, error: error instanceof Error ? error.message : '无法打开文件管理器' }
+        return { ok: false, error: error instanceof Error ? error.message : 'Cannot open the file manager' }
       }
       return { ok: true, target: display }
     },
